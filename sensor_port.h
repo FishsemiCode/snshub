@@ -65,7 +65,7 @@ struct sensor_bus_info {
     union {
         struct sensor_i2c_info i2c_info;
         struct sensor_spi_info spi_info;
-    };
+    } u;
 };
 
 struct sns_port;

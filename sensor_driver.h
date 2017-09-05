@@ -44,6 +44,14 @@
 
 #define SENSOR_MATCHING_NAME_SIZE 20
 
+#if defined ARCH_CEVA
+#define __define_brd__  __attribute__((__used__)) __attribute__((section(".DSECT sensor_board_section")))
+#define __define_drv__  __attribute__((__used__)) __attribute__((section(".DSECT sensor_driver_section")))
+#else
+#define __define_brd__  __attribute__((__used__)) __attribute__((section(".sensor_board_section")))
+#define __define_drv__  __attribute__((__used__)) __attribute__((section(".sensor_driver_section")))
+#endif
+
 struct sensor_dev;
 
 struct sensor_matching_data {
@@ -122,8 +130,6 @@ static inline void init_sensor_dev(struct sensor_dev *sdev,
     sdev->mdata = mdata;
 }
 
-#define __define_brd__   __attribute__((__used__)) __attribute((section(".sensor_board_section")))
-#define __define_drv__   __attribute__((__used__)) __attribute((section(".sensor_driver_section")))
 struct sensor_driver {
     const char *name;
     const struct sensor_matching_data **mdata;

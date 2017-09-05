@@ -54,7 +54,6 @@ static int hw_sensor_num = 0;
 
 extern const struct sensor_driver __sensor_driver_start;
 extern const struct sensor_driver __sensor_driver_end;
-
 extern const struct board_info __sensor_board_start;
 extern const struct board_info __sensor_board_end;
 
@@ -86,7 +85,7 @@ static const struct sensor_platform_data **hw_sensors_get_pdata()
     if (!hv.system || !hv.board)
         return NULL;
 
-    for (pbrd = &__sensor_board_start; pbrd != &__sensor_board_end; pbrd++) {
+    for (pbrd = &__sensor_board_start; pbrd < &__sensor_board_end; pbrd++) {
         phv = pbrd->version;
         while (phv && phv->system) {
             if (hw_sensors_is_match_hw(&hv, phv))
@@ -106,7 +105,7 @@ static const struct sensor_driver *hw_sensors_get_match_driver(const struct sens
     const struct sensor_matching_data **mdata;
     int i;
 
-    for (drv = &__sensor_driver_start; drv != &__sensor_driver_end; drv++) {
+    for (drv = &__sensor_driver_start; drv < &__sensor_driver_end; drv++) {
         mdata = drv->mdata;
         for (i = 0; mdata[i]->name[0]; i++)
             if (strcmp(mdata[i]->name, pdata->name) == 0) {

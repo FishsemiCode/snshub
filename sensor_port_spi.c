@@ -152,7 +152,7 @@ create_mutex_err:
 static int spi_xfer(struct sns_port *port, struct spi_msg *msg)
 {
     struct port_spi_master *master = port->master;
-    const struct sensor_spi_info *info = &port->binfo->spi_info;
+    const struct sensor_spi_info *info = &port->binfo->u.spi_info;
     ARM_SPI_STATUS status;
     uint32_t control_code;
     int ret;
@@ -258,7 +258,7 @@ static struct port_ops spi_ops = {
 int port_init_spi(const struct sensor_bus_info *info, struct sns_port *port)
 {
     struct port_spi_master *master;
-    const struct sensor_spi_info *spi_info = &info->spi_info;
+    const struct sensor_spi_info *spi_info = &info->u.spi_info;
     ARM_DRIVER_SPI *drv_spi;
     int max_id;
     int ret = 0;

@@ -176,7 +176,7 @@ transfer_err:
 static int i2c_read(struct sns_port *port, uint8_t reg, void *buff, size_t size)
 {
     struct port_i2c_master *master = port->master;
-    const struct sensor_i2c_info *i2c_info = &port->binfo->i2c_info;
+    const struct sensor_i2c_info *i2c_info = &port->binfo->u.i2c_info;
     ARM_I2C_MSG msg[2];
 
     msg[0].addr = i2c_info->slave_addr;
@@ -194,7 +194,7 @@ static int i2c_read(struct sns_port *port, uint8_t reg, void *buff, size_t size)
 static int i2c_write(struct sns_port *port, uint8_t reg, void *buff, size_t size)
 {
     struct port_i2c_master *master = port->master;
-    const struct sensor_i2c_info *i2c_info = &port->binfo->i2c_info;
+    const struct sensor_i2c_info *i2c_info = &port->binfo->u.i2c_info;
     ARM_I2C_MSG msg;
     uint8_t data[MAX_WRITE_LENGTH + 1];
 
@@ -222,7 +222,7 @@ static struct port_ops i2c_ops = {
 int port_init_i2c(const struct sensor_bus_info *info, struct sns_port *port)
 {
     struct port_i2c_master *master;
-    const struct sensor_i2c_info *i2c_info = &info->i2c_info;
+    const struct sensor_i2c_info *i2c_info = &info->u.i2c_info;
     ARM_DRIVER_I2C *drv_i2c;
     int max_id;
     int ret = 0;

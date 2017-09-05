@@ -57,9 +57,11 @@ static const struct sensor_platform_data ltr579_pdata = {
     .name = "liteon,ltr579",
     .bus_info = {
         .bus_type = BUS_I2C,
-        .i2c_info = {
-            .master_id = 0,
-            .slave_addr = 0x53,
+        .u = {
+            .i2c_info = {
+                .master_id = 0,
+                .slave_addr = 0x53,
+            },
         },
     },
     .spdata = &ltr579_spdata,
@@ -75,9 +77,11 @@ static const struct sensor_platform_data yas537_pdata = {
     .name = "yamaha,yas537",
     .bus_info = {
         .bus_type = BUS_I2C,
-        .i2c_info = {
-            .master_id = 0,
-            .slave_addr = 0x2e,
+        .u = {
+            .i2c_info = {
+                .master_id = 0,
+                .slave_addr = 0x2e,
+            },
         },
     },
     .spdata = &yas537_spdata,
@@ -96,11 +100,13 @@ static const struct sensor_platform_data icm20690_pdata = {
     .name = "invn,icm20690",
     .bus_info = {
         .bus_type = BUS_SPI,
-        .spi_info = {
-            .master_id = 1,
-            .chip_select = 0,
-            .mode = SPI_CPOL1_CPHA1,
-            .max_frequency = 2000000,
+        .u = {
+            .spi_info = {
+                .master_id = 1,
+                .chip_select = 0,
+                .mode = SPI_CPOL1_CPHA1,
+                .max_frequency = 2000000,
+            },
         },
     },
     .spdata = &icm20690_spdata,
