@@ -219,7 +219,7 @@ static int spi_read(struct sns_port *port, uint8_t reg, void *buff, size_t size)
     master->tx_buffer[0] = reg;
     ret = spi_xfer(port, &msg);
     if (!ret)
-        memcpy(buff, &master->rx_buffer[1], size);
+        b2ccpy(buff, master->rx_buffer, size, true);
 
     osMutexRelease(master->mutex);
 
@@ -242,7 +242,7 @@ static int spi_write(struct sns_port *port, uint8_t reg, void *buff, size_t size
     osMutexAcquire(master->mutex, osWaitForever);
 
     master->tx_buffer[0] = reg;
-    memcpy(&master->tx_buffer[1], buff, size);
+    c2bcpy(master->tx_buffer, buff, size, true);
     ret = spi_xfer(port, &msg);
 
     osMutexRelease(master->mutex);
