@@ -39,6 +39,7 @@
 #include "sensor_driver.h"
 #include "hw_sensors.h"
 #include "icm20602.h"
+#include "spl06.h"
 #include "utils.h"
 
 static const struct icm20602_platform_data icm20602_spdata = {
@@ -64,6 +65,26 @@ static const struct sensor_platform_data icm20602_pdata = {
     .spdata = &icm20602_spdata,
 };
 
+static const struct spl0601_platform_data spl0601_spdata = {
+    .press_smplrate = 32,
+    .press_oversmpl = 16,
+    .temp_smplrate = 32,
+    .temp_oversmpl = 1,
+};
+static const struct sensor_platform_data spl0601_pdata = {
+    .name = "goertek,spl0601",
+    .bus_info = {
+        .bus_type = BUS_I2C,
+        .u = {
+            .i2c_info = {
+                .master_id = 2,
+                .slave_addr = 0x76,
+            },
+        },
+    },
+    .spdata = &spl0601_spdata,
+};
+
 static const struct hw_version bd_versions[] = {
     {
         .system = "0xfd7bbda9fd0300",
@@ -76,6 +97,7 @@ static const struct hw_version bd_versions[] = {
 
 static const struct sensor_platform_data *sensor_pdata[] = {
     &icm20602_pdata,
+    &spl0601_pdata,
     NULL,
 };
 
