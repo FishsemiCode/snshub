@@ -107,7 +107,7 @@ static const struct sensor_driver *hw_sensors_get_match_driver(const struct sens
 
     for (drv = &__sensor_driver_start; drv < &__sensor_driver_end; drv++) {
         mdata = drv->mdata;
-        for (i = 0; mdata[i]->name[0]; i++)
+        for (i = 0; mdata[i] != NULL; i++)
             if (strcmp(mdata[i]->name, pdata->name) == 0) {
                 *matching_data = mdata[i];
                 return drv;
