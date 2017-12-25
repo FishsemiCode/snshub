@@ -52,7 +52,6 @@
 
 #define ICM20602_DEVICE_ID       0x12
 
-/*---------------*/
 #define REG_SELF_TEST_X_GYRO        0x00
 #define REG_SELF_TEST_Y_GYRO        0x01
 #define REG_SELF_TEST_Z_GYRO        0x02
@@ -126,7 +125,7 @@
 /* field for REG_GYRO_CONFIGURATION */
 #define GFCHOICE_B_MASK             (0x03 << 0)
 #define GFCHOICE_DLPF               0x00
-#define GFS_MASK                    (0x07 << 2)
+#define GFS_MASK                    (0x03 << 3)
 #define GFS_250_DPS                 (0 << 2)
 #define GFS_500_DPS                 (1 << 2)
 #define GFS_1000_DPS                (2 << 2)
@@ -156,6 +155,7 @@
 /* field for REG_PWR_MGMT_1 */
 #define DEVICE_RESET                (1 << 7)
 #define DEVICE_SLEEP                (1 << 6)
+#define DEVICE_CYCLE                (1 << 5)
 #define CLKSEL_MASK                 (0x07 << 0)
 #define CLKSEL_INTERNAL             0
 #define CLKSEL_AUTO_BEST            1
@@ -173,7 +173,6 @@
 struct icm20602_rtdata {
     struct sns_port port;
     osMutexId_t mutex;
-    osTimerId_t poll_timer;
     const struct sensor_platform_data *pdata;
 
     bool acc_enabled;
@@ -187,8 +186,6 @@ struct icm20602_rtdata {
     int gyro_expect_odr;
 
     int actual_odr_idx;
-
-    int64_t timestamp;
 };
 
 struct icm_param_range {
@@ -226,7 +223,8 @@ const static struct icm_param_odr icm_acc_gyro_odrs[] = {
     {20, 49}, /* UI */
     {50, 19}, /* GAME */
     {100, 9}, /* FASTEST */
-    /* need to enable 200Hz ? */
+    {200, 4}, /* MORE FASTER */
+    {1000, 0}, /* SUPPER */
 };
 
 const static struct icm_param_bw icm_acc_bws[] = {
@@ -272,10 +270,6 @@ static int icm_reg_update(struct sns_port *port, uint8_t reg, uint8_t mask, uint
 
     return sns_port_write(port, reg, &ori, 1);
 }
-
-const static uint8_t reglist[] = {
-    REG_ACC_DATA_XOUTH, REG_ACC_DATA_XOUTH + 1, REG_ACC_DATA_XOUTH + 2,
-};
 
 static int icm_find_acc_range(int expect)
 {
@@ -356,7 +350,6 @@ static int icm_acc_enable(struct icm20602_rtdata *rtdata, bool enable)
     } else {
         icm_reg_update(&rtdata->port, REG_PWR_MGMT_2, STBY_ACC, STBY_ACC);
         rtdata->acc_expect_odr = INT_MIN;
-        icm_sync_odr(rtdata);
     }
 
     return 0;
@@ -365,15 +358,10 @@ static int icm_acc_enable(struct icm20602_rtdata *rtdata, bool enable)
 static int icm_gyro_enable(struct icm20602_rtdata *rtdata, bool enable)
 {
     if (enable) {
-        icm_reg_update(&rtdata->port, REG_PWR_MGMT_1, CLKSEL_MASK, CLKSEL_AUTO_BEST);
-        osDelay(osMsecToTick(1));
         icm_reg_update(&rtdata->port, REG_PWR_MGMT_2, STBY_GYR, 0);
     } else {
-        icm_reg_update(&rtdata->port, REG_PWR_MGMT_1, CLKSEL_MASK, CLKSEL_INTERNAL);
-        osDelay(osMsecToTick(1));
         icm_reg_update(&rtdata->port, REG_PWR_MGMT_2, STBY_GYR, STBY_GYR);
         rtdata->gyro_expect_odr = INT_MIN;
-        icm_sync_odr(rtdata);
     }
 
     return 0;
@@ -382,14 +370,11 @@ static int icm_gyro_enable(struct icm20602_rtdata *rtdata, bool enable)
 static int icm20602_activate(const struct sensor_dev *dev, bool enable)
 {
     struct icm20602_rtdata *rtdata = dev->rtdata;
-    bool old_status, new_status;
-    int ret = 0;
 
     /* XXX: just non-fifo mode for now, later will create a fifo procedure */
     osMutexAcquire(rtdata->mutex, osWaitForever);
 
     printf("icm: activate %s to %s\n", dev->name, enable ? "enable" : "disable");
-    old_status = rtdata->acc_enabled || rtdata->gyro_enabled;
     if (dev->type == SENSOR_TYPE_ACCELEROMETER && rtdata->acc_enabled != enable) {
         icm_acc_enable(rtdata, enable);
         rtdata->acc_enabled = enable;
@@ -398,20 +383,9 @@ static int icm20602_activate(const struct sensor_dev *dev, bool enable)
         rtdata->gyro_enabled = enable;
     }
 
-    new_status = rtdata->acc_enabled || rtdata->gyro_enabled;
-
-    if (old_status != new_status) {
-        if (new_status) {
-            osTimerStart(rtdata->poll_timer, osUsecToTick(1000000 / icm_acc_gyro_odrs[rtdata->actual_odr_idx].odr));
-        }
-        else {
-            osTimerStop(rtdata->poll_timer);
-        }
-    }
-
     osMutexRelease(rtdata->mutex);
 
-    return ret;
+    return 0;
 }
 
 static int icm20602_set_delay(const struct sensor_dev *dev, uint32_t us)
@@ -532,20 +506,27 @@ static void icm_convert_reg_to_event(int8_t *reg_data, struct sensor_event *even
     remap_vector_raw16to32_axis(raw_data, event->data_raw, place);
 }
 
-static void icm20602_poller(void *arg)
+static void icm20602_pended_handler(void *param1, uint32_t param2)
 {
-    struct icm20602_rtdata *rtdata = arg;
-    const struct icm20602_platform_data *spdata = rtdata->pdata->spdata;
+    struct icm20602_rtdata *rtdata = param1;
+    struct icm20602_platform_data *spdata = rtdata->pdata->spdata;
+    int64_t timestamp = param2;
     struct sensor_event event[2];
-    int64_t timestamp = get_timestamp();
-    uint8_t int_status = 0, num = 0;
     int8_t reg_data[6];
-    int ret;
+    int idx = rtdata->actual_odr_idx;
+    uint8_t num = 0, int_status = 0, ret = 0;
+    uint16_t raw_temp = 0;
 
-    /* read the status, this will clear interrupt status */
     ret = icm_regs_read(&rtdata->port, REG_INT_STATUS, &int_status, 1);
-    if (ret)
-        return;
+    if (ret < 0) {
+        printf("icm20602 reg REG_INT_STATUS read faild, err:%d\n", ret);
+        goto error;
+    }
+
+    ret = icm_regs_read(&rtdata->port, REG_TEMP_DATA_OUTH, reg_data, 2);
+    if (!ret) {
+        raw_temp = (reg_data[0]<<8) | reg_data[1];
+    }
 
     if (rtdata->acc_enabled && (int_status & ST_DATA_RDY_INT)) {
         ret = icm_regs_read(&rtdata->port, REG_ACC_DATA_XOUTH, reg_data, 6);
@@ -554,6 +535,7 @@ static void icm20602_poller(void *arg)
             event[num].data[0] = event[num].data_raw[0] * icm_acc_ranges[rtdata->acc_range_idx].resolution;
             event[num].data[1] = event[num].data_raw[1] * icm_acc_ranges[rtdata->acc_range_idx].resolution;
             event[num].data[2] = event[num].data_raw[2] * icm_acc_ranges[rtdata->acc_range_idx].resolution;
+            event[num].data[3] = raw_temp * spdata->temp_factor;
             event[num].type = SENSOR_TYPE_ACCELEROMETER;
             event[num].timestamp = timestamp;
             num++;
@@ -567,13 +549,34 @@ static void icm20602_poller(void *arg)
             event[num].data[0] = event[num].data_raw[0] * icm_gyro_ranges[rtdata->gyro_range_idx].resolution;
             event[num].data[1] = event[num].data_raw[1] * icm_gyro_ranges[rtdata->gyro_range_idx].resolution;
             event[num].data[2] = event[num].data_raw[2] * icm_gyro_ranges[rtdata->gyro_range_idx].resolution;
+            event[num].data[3] = raw_temp * spdata->temp_factor;
             event[num].type = SENSOR_TYPE_GYROSCOPE;
             event[num].timestamp = timestamp;
             num++;
         }
     }
 
-    smgr_push_data(event, num);
+    if (num > 0)
+        smgr_push_data(event, num);
+
+error:
+    sensor_enable_gpio_irq(spdata->irq_pin, spdata->trigger_type);
+}
+
+static void icm20602_irq_handler(uint32_t pin, void *data)
+{
+    struct icm20602_rtdata *rtdata = data;
+    const struct icm20602_platform_data *spdata = rtdata->pdata->spdata;
+    int64_t timestamp = get_timestamp();
+
+    /* this is an IRQ context, we must use the pended handler
+     * since the i2c access will be blocked */
+    osPendFunctionCall(icm20602_pended_handler, rtdata, timestamp);
+    /* XXX: because it's a level triggered interrupt, the handler would be called
+     * frequetly until the pended handler is executed to read fifo data register.
+     * so we need to temperarily disable the gpio interrupt and then re-enable it
+     * in the pended handler */
+    sensor_enable_gpio_irq(spdata->irq_pin, 0);
 }
 
 static int icm20602_check_id(struct sns_port *port)
@@ -590,6 +593,35 @@ static int icm20602_check_id(struct sns_port *port)
     return ret;
 }
 
+int icm20602_reset(struct icm20602_rtdata *rtdata)
+{
+    struct sns_port *port = &rtdata->port;
+    uint8_t reg;
+    int ret = 0, retry = 0;
+
+    icm_reg_update(port, REG_PWR_MGMT_1, DEVICE_RESET, DEVICE_RESET);
+
+    for (retry = 0; retry < 10; retry++) {
+        ret = icm_regs_read(port, REG_PWR_MGMT_1, &reg, 1);
+        if(!ret && !(reg & DEVICE_RESET) && (reg & DEVICE_SLEEP))
+            break;
+        osDelay(osMsecToTick(200));
+    }
+    return ret;
+}
+
+void intr_init(struct icm20602_rtdata *rtdata)
+{
+    struct sns_port *port = &rtdata->port;
+
+    /* 1.configure interrupt pin */
+    icm_reg_write(port, REG_INT_PIN_CFG, 0x30);
+
+    /* 2.configure interrupt */
+    icm_reg_write(port, REG_INTERRUPT_ENABLE, 0x01);
+    osDelay(osMsecToTick(1));
+}
+
 static int icm20602_init_chip(struct icm20602_rtdata *rtdata)
 {
     int ret = -1;
@@ -597,28 +629,28 @@ static int icm20602_init_chip(struct icm20602_rtdata *rtdata)
     struct sns_port *port = &rtdata->port;
     const struct icm20602_platform_data *spdata = rtdata->pdata->spdata;
 
-    ret = icm20602_check_id(&rtdata->port);
+    /* 1.reset chip */
+    ret = icm20602_reset(rtdata);
     if (ret) {
-        printf("icm20602: check id failed\n");
+        printf("reset failed for icm20602\n");
         return ret;
     }
 
-    /* reset chip */
-    icm_reg_update(port, REG_PWR_MGMT_1, DEVICE_RESET, DEVICE_RESET);
-    osDelay(osMsecToTick(100));
+    /* 2.exit sleep mode */
+    icm_reg_update(port, REG_PWR_MGMT_1, DEVICE_SLEEP|DEVICE_CYCLE, 0);
 
-    /* exit sleep mode */
-    icm_reg_update(port, REG_PWR_MGMT_1, DEVICE_SLEEP, 0);
-    osDelay(osMsecToTick(10));
+    /* 3.check product id */
+    ret = icm20602_check_id(port);
+    if (ret) {
+        printf("check id failed for icm20602\n");
+        return ret;
+    }
 
-    /* set clock source */
+    /* 4.set clock source */
     icm_reg_update(port, REG_PWR_MGMT_1, CLKSEL_MASK, 0);
-    osDelay(osMsecToTick(1));
-    icm_reg_write(port, REG_BANK_SEL, 0x20);
-    icm_reg_update(port, REG_INTOSC, (1 << 7), 0x00);
-    icm_reg_write(port, REG_BANK_SEL, 0x00);
+    osDelay(osMsecToTick(5));
 
-    /* set the default range, bandwidth, odrs*/
+    /* 5.set the default range, bandwidth, odrs*/
     if (!spdata->acc_range)
         idx = icm_find_acc_range(spdata->acc_range);
     else
@@ -647,20 +679,19 @@ static int icm20602_init_chip(struct icm20602_rtdata *rtdata)
     rtdata->gyro_bw_idx = idx;
     icm_reg_update(port, REG_CONFIGURATION, GDLPF_CFG_MASK, icm_gyro_bws[idx].reg_value);
 
+    /* 6.set default odr */
     idx = icm_find_odr(DEFAULT_ODR);
     rtdata->actual_odr_idx = idx;
     rtdata->acc_expect_odr = INT_MIN;
     rtdata->gyro_expect_odr = INT_MIN;
     icm_reg_write(port, REG_SMPLRT_DIV, icm_acc_gyro_odrs[idx].reg_value);
 
-    /* enable the data ready interrupt.
-     * XXX: need to configure the interrupt(e.g data_ready or fifo water mark) according
-     * to the para of the platform data? */
-    icm_reg_update(port, REG_INTERRUPT_ENABLE, DATA_RDY_INT, DATA_RDY_INT);
-    icm_reg_update(port, REG_INT_PIN_CFG, INT_PIN_CONFIG_MASK, INT_PIN_CONFIG);
+    /* 7.configure intr and intr pin */
+    intr_init(rtdata);
 
-    /* disable ACC and GYRO by default */
+    /* 8.disable ACC and GYRO by default */
     icm_reg_update(port, REG_PWR_MGMT_2, STBY_ACC | STBY_GYR, STBY_ACC | STBY_GYR);
+    osDelay(osMsecToTick(200));
 
     return ret;
 }
@@ -678,7 +709,7 @@ static int icm20602_probe(const struct sensor_platform_data *pdata,
     msize = sizeof(*sdevs) * 2 + sizeof(struct icm20602_rtdata);
     sdevs = calloc(1, msize);
     if (!sdevs) {
-        printf("icm20602 failed to malloc\n");
+        printf("failed to malloc fot icm20602\n");
         return -ENOMEM;
     }
 
@@ -693,7 +724,7 @@ static int icm20602_probe(const struct sensor_platform_data *pdata,
 
     ret = icm20602_init_chip(rtdata);
     if (ret) {
-        printf("icm20602 init failed:%d\n", ret);
+        printf("failed to init for icm20602:%d\n", ret);
         goto init_err;
     }
 
@@ -704,16 +735,16 @@ static int icm20602_probe(const struct sensor_platform_data *pdata,
         goto mutex_err;
     }
 
-    rtdata->poll_timer = osTimerNew(icm20602_poller, osTimerPeriodic, rtdata, NULL);
+    ret = sensor_register_gpio_irq(spdata->irq_pin, spdata->trigger_type, icm20602_irq_handler, rtdata);
     if (ret) {
-        printf("failed to create poller timer for icm20602:%d\n", ret);
-        goto timer_err;
+        printf("failed to register irq handler for icm20602:%d\n", ret);
+        goto gpio_irq_err;
     }
 
     init_sensor_dev(&sdevs[0], ACCEL_SENSOR, SENSOR_TYPE_ACCELEROMETER,
-            &icm_ops, pdata, rtdata, mdata);
+        &icm_ops, pdata, rtdata, mdata);
     init_sensor_dev(&sdevs[1], GYRO_SENSOR, SENSOR_TYPE_GYROSCOPE,
-            &icm_ops, pdata, rtdata, mdata);
+        &icm_ops, pdata, rtdata, mdata);
 
     *dev = sdevs;
     *num_sensors = 2;
@@ -722,7 +753,7 @@ static int icm20602_probe(const struct sensor_platform_data *pdata,
 
     return ret;
 
-timer_err:
+gpio_irq_err:
     osMutexDelete(rtdata->mutex);
 mutex_err:
 init_err:

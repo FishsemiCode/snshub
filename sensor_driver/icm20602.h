@@ -39,11 +39,14 @@
 #define __ICM20602_H__
 
 struct icm20602_platform_data {
+    int irq_pin;
+    int trigger_type;
     int place;
     int acc_range;
     int acc_bw;
     int gyro_range;
     int gyro_bw;
+    float temp_factor;
 };
 
 #endif
