@@ -61,6 +61,8 @@
 #define SPL06_PRODUCT_ID    0x10
 #define SPL06_REG_CHECK_SUCCESS 0x02
 #define SPL06_REG_CFG_COEF_RDY  0x80
+#define SPL06_REG_TEMP_INT_RDY  0x2
+#define SPL06_REG_PRESSURE_INT_RDY  0x1
 
 #define SPL06_REG_PROD_ID           0x0D
 
@@ -99,10 +101,7 @@
 #define SPL06_REG_COEF_C30l         (0x21)
 #define SPL06_REG_CHECK             (0x32)
 
-
-#define PRESS_DELAY                 (100000)    /* 27600us */
-#define TEMP_DELAY                  (3600)  /* us */
-
+#define PRESS_DELAY_DEFAULT         (1000000/100) /* 100HZ */
 
 struct spl0601_calib_param {
     int16_t c0;
@@ -116,16 +115,32 @@ struct spl0601_calib_param {
     int16_t c30;
 };
 
+struct spl0601_odr_info {
+    int32_t odr;
+    int32_t measurement_rate;
+    int32_t oversampling_rate;
+};
+
+/* max percision set according to the time:1000/measurement_rate/2 */
+const static struct spl0601_odr_info spl0601_odr_array[] = {
+    {5,  8,  32},
+    {15, 16, 16},
+    {25, 32, 8},
+    {50, 64, 2},
+    {100, 128, 0},
+};
+
 struct spl0601_rtdata {
     struct sns_port port;
     osMutexId_t mutex;
-    struct spl0601_calib_param calib_param;/*calibration data */
+    struct spl0601_calib_param calib_param; /* calibration data */
 
     bool press_enabled;
     bool temp_enabled;
     bool readable;
     bool t_p_switch; /* 0 for temperature, 1 for pressure */
 
+    int32_t prepare_flag;
     uint32_t udelay;
     int32_t i32rawPressure;
     int32_t i32rawTemperature;
@@ -176,7 +191,6 @@ static void spl0601_get_raw_temp(struct spl0601_rtdata *spl)
 
 static void spl0601_get_raw_pressure(struct spl0601_rtdata *spl)
 {
-
    uint8_t reg[3] = {0};
 
    spl0601_read_data(&spl->port, SPL06_REG_PSR_B2, reg, 3);
@@ -263,7 +277,7 @@ static void spl0601_rateset(struct spl0601_rtdata *rtdata, uint8_t iSensor, uint
         reg |= 4;
         break;
     case 32:
-        i32kPkT = 516096;   /* 101 - 32 measurements pr. sec. */
+        i32kPkT = 516096; /* 101 - 32 measurements pr. sec. */
         reg |= 5;
         break;
     case 64:
@@ -291,7 +305,7 @@ static void spl0601_rateset(struct spl0601_rtdata *rtdata, uint8_t iSensor, uint
     }
     if (iSensor == SENSOR_TEMPERATURE) {
         rtdata->i32kT = i32kPkT;
-        spl0601_write_reg(sport, SPL06_REG_TMP_CFG, reg | 0x80);//Using mems temperature
+        spl0601_write_reg(sport, SPL06_REG_TMP_CFG, reg | 0x80);/* Using mems temperature */
         if (u8OverSmpl > 8) {
             spl0601_read_reg(sport, SPL06_REG_CFG_REG, &reg);
             printf("SPL06_REG_CFG_REG: 0x%x\n", reg);
@@ -392,35 +406,33 @@ static void spl0601_timer_cb(void *arg)
 {
     struct spl0601_rtdata *rtdata = arg;
     struct sensor_event prox_event;
+    struct sns_port *sport = &rtdata->port;
+    uint8_t reg;
+
+    if (rtdata->prepare_flag == 0)
+        return;
 
     memset(&prox_event, 0, sizeof(prox_event));
     prox_event.timestamp = get_timestamp();
-
-    printf("temp: %s, press: %s, t_p_switch: %d\n",
-        rtdata->temp_enabled? "enabled": "not enabled",
-        rtdata->press_enabled? "enabled": "not enabled",
-        rtdata->t_p_switch);
 
     if (!rtdata->temp_enabled && !rtdata->press_enabled) {
         printf("both disabled\n");
         return;
     }
 
+    spl0601_read_reg(sport, SPL06_REG_INT_STS, &reg);
+
+    if (!((reg & SPL06_REG_PRESSURE_INT_RDY) || (reg & SPL06_REG_TEMP_INT_RDY)))
+        return;
+
     spl0601_sensor_data_get(rtdata);
     if (rtdata->press_enabled && !rtdata->t_p_switch) {
         prox_event.pressure_raw.raw0 = rtdata->fTsc;
         prox_event.pressure_raw.raw1 = rtdata->fPsc;
-        prox_event.pressure.value = rtdata->pressure;
+        prox_event.pressure_t.value = rtdata->pressure;
+        prox_event.pressure_t.temperature = rtdata->temperature;
 
         prox_event.type = SENSOR_TYPE_PRESSURE;
-        smgr_push_data(&prox_event, 1);
-    }
-
-    if (rtdata->temp_enabled && rtdata->t_p_switch) {
-        prox_event.temperature_raw.raw0 = rtdata->fTsc;
-        prox_event.temperature.value = rtdata->temperature;
-
-        prox_event.type = SENSOR_TYPE_TEMPERATURE;
         smgr_push_data(&prox_event, 1);
     }
 
@@ -437,8 +449,6 @@ static int spl0601_sensor_init(struct spl0601_rtdata *rtdata)
     if (ret < 0) {
         printf("spl0601 write SPL06_REG_SOFT_RST err, ret: %d\n", ret);
         return ret;
-    } else {
-        printf("success %d\n", __LINE__);
     }
 
     osDelay(osUsecToTick(40000));
@@ -453,13 +463,13 @@ static int spl0601_sensor_init(struct spl0601_rtdata *rtdata)
         printf("check SPL06_REG_PROD_ID failed\n");
         return -1;
     } else {
-        printf("---SPL06_REG_PROD_ID=0x%x\n", reg);
+        printf("SPL06_REG_PROD_ID=0x%x\n", reg);
         ret = spl0601_read_reg(sport, SPL06_REG_CHECK, &reg);
         if (ret < 0) {
             printf("spl0601 read SPL06_REG_CHECK err, ret: %d\n", ret);
             return ret;
         }
-        printf("------reg SPL06_REG_CHECK=%d\n", reg);
+        printf("reg SPL06_REG_CHECK=%d\n", reg);
         if (reg != SPL06_REG_CHECK_SUCCESS) {
             return -1;
         }
@@ -480,8 +490,12 @@ static int spl0601_sensor_init(struct spl0601_rtdata *rtdata)
     }
 
     spl0601_get_calib_param(rtdata);
-    spl0601_rateset(rtdata, SENSOR_PRESSURE, 32, 16); /* 16   4 */
-    spl0601_rateset(rtdata, SENSOR_TEMPERATURE, 32, 1);
+    spl0601_rateset(rtdata, SENSOR_PRESSURE, 128, 0);
+    spl0601_rateset(rtdata, SENSOR_TEMPERATURE, 128, 0);
+
+    /*set temp\pressure data ready interrupt*/
+    spl0601_read_reg(sport, SPL06_REG_CFG_REG, &reg);
+    spl0601_write_reg(sport, SPL06_REG_CFG_REG, reg | 0x30);
 
     rtdata->i32rawPressure = 0;
     rtdata->i32rawTemperature = 0;
@@ -529,6 +543,29 @@ exit_err:
     return ret;
 }
 
+static int spl_find_odr(int expect)
+{
+    int i;
+
+    for (i = 0; i < __countof(spl0601_odr_array); i++) {
+        if (expect <= spl0601_odr_array[i].odr)
+            return i;
+    }
+
+    return i - 1;
+}
+
+static void spl_sync_odr(struct spl0601_rtdata *rtdata)
+{
+    int actual_odr = 1000000/rtdata->udelay;
+    int idx = spl_find_odr(actual_odr);
+
+    printf("spl0601 set odr udelay:%d, odr:%d, idx:%d\n",
+              rtdata->udelay, actual_odr, idx);
+    spl0601_rateset(rtdata, SENSOR_PRESSURE, spl0601_odr_array[idx].measurement_rate, spl0601_odr_array[idx].oversampling_rate);
+    spl0601_rateset(rtdata, SENSOR_TEMPERATURE, spl0601_odr_array[idx].measurement_rate, spl0601_odr_array[idx].oversampling_rate);
+}
+
 static int spl0601_set_delay(const struct sensor_dev *dev, uint32_t us)
 {
     struct spl0601_rtdata *rtdata = dev->rtdata;
@@ -536,8 +573,7 @@ static int spl0601_set_delay(const struct sensor_dev *dev, uint32_t us)
     if (rtdata->udelay != us) {
         osMutexAcquire(rtdata->mutex, osWaitForever);
         rtdata->udelay = us;
-        if (rtdata->press_enabled || rtdata->temp_enabled)
-            osTimerStart(rtdata->timer, osUsecToTick(us));
+        spl_sync_odr(rtdata);
         osMutexRelease(rtdata->mutex);
     }
 
@@ -586,12 +622,22 @@ static float spl0601_get_power(const struct sensor_dev *dev)
 
 static int spl0601_get_min_delay(const struct sensor_dev *dev)
 {
-    return PRESS_DELAY;
+    int idx, odr;
+
+    idx = spl_find_odr(INT_MAX);
+    odr = spl0601_odr_array[idx].odr;
+
+    return 1000000 / odr;
 }
 
 static int spl0601_get_max_delay(const struct sensor_dev *dev)
 {
-    return 0;
+    int idx, odr;
+
+    idx = spl_find_odr(0);
+    odr = spl0601_odr_array[idx].odr;
+
+    return 1000000 / odr;
 }
 
 static float spl0601_get_resolution(const struct sensor_dev *dev)
@@ -621,18 +667,17 @@ static int spl0601_probe(const struct sensor_platform_data *pdata,
 {
     struct sensor_dev *sdevs;
     struct spl0601_rtdata *rtdata;
-    const struct Spl0601_platform_data *spdata = pdata->spdata;
     size_t msize;
     int ret;
 
-    msize = sizeof(*sdevs) * 2 + sizeof(struct spl0601_rtdata);
+    msize = sizeof(*sdevs) * 1 + sizeof(struct spl0601_rtdata);
     sdevs = calloc(1, msize);
     if (!sdevs) {
         printf("spl0601 failed to malloc\n");
         return -ENOMEM;
     }
 
-    rtdata = (struct spl0601_rtdata *)&sdevs[2];
+    rtdata = (struct spl0601_rtdata *)&sdevs[1];
     ret = sns_port_init(&pdata->bus_info, &rtdata->port);
     if (ret) {
         printf("failed to init port for %s\n", pdata->name);
@@ -653,7 +698,7 @@ static int spl0601_probe(const struct sensor_platform_data *pdata,
         goto timer_err;
     }
 
-    rtdata->udelay = PRESS_DELAY;
+    rtdata->udelay = PRESS_DELAY_DEFAULT;
     ret = spl0601_sensor_init(rtdata);
     if (ret < 0) {
         printf("spl0601_sensor_init failed\n");
@@ -662,13 +707,13 @@ static int spl0601_probe(const struct sensor_platform_data *pdata,
 
     init_sensor_dev(&sdevs[0], PRESSURE_SENSOR, SENSOR_TYPE_PRESSURE,
             &spl0601_ops, pdata, rtdata, mdata);
-    init_sensor_dev(&sdevs[1], TEMPERATURE_SENSOR, SENSOR_TYPE_TEMPERATURE,
-            &spl0601_ops, pdata, rtdata, mdata);
 
     *dev = sdevs;
-    *num_sensors = 2;
+    *num_sensors = 1;
 
-    printf("2 sensor probed for spl0601\n");
+    rtdata->prepare_flag = 1;
+
+    printf("sensor probed for spl0601\n");
 
     return 0;
 
