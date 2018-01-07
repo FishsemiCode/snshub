@@ -40,6 +40,7 @@
 #include "hw_sensors.h"
 #include "icm20602.h"
 #include "spl06.h"
+#include "ist8307a_imp.h"
 #include "utils.h"
 
 static const struct icm20602_platform_data icm20602_spdata = {
@@ -85,6 +86,23 @@ static const struct sensor_platform_data spl0601_pdata = {
     .spdata = &spl0601_spdata,
 };
 
+static const struct ist8307a_platform_data ist8307a_spdata = {
+    .place = 1,
+};
+static const struct sensor_platform_data ist8307a_pdata = {
+    .name = "isentek,ist8307a",
+    .bus_info = {
+        .bus_type = BUS_I2C,
+        .u = {
+            .i2c_info = {
+                .master_id = 0,
+                .slave_addr = 0x0C,
+            },
+        },
+    },
+    .spdata = &ist8307a_spdata,
+};
+
 static const struct hw_version bd_versions[] = {
     {
         .system = "0xfd7bbda9fd0300",
@@ -98,6 +116,7 @@ static const struct hw_version bd_versions[] = {
 static const struct sensor_platform_data *sensor_pdata[] = {
     &icm20602_pdata,
     &spl0601_pdata,
+    &ist8307a_pdata,
     NULL,
 };
 

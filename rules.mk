@@ -37,12 +37,14 @@ MODULE_SRCS += \
 	$(LOCAL_DIR)/utils.c \
 	$(LOCAL_DIR)/sensor_driver/icm20602.c \
 	$(LOCAL_DIR)/sensor_driver/spl06.c \
+	$(LOCAL_DIR)/sensor_driver/ist8307a_imp.c \
 
 ifeq ($(ARCH),ceva)
 EXTRA_OBJS += $(call TOBUILDDIR, $(LOCAL_DIR))/sensor_board_bumblebee.o
 EXTRA_OBJS += $(call TOBUILDDIR, $(LOCAL_DIR))/client_manager.o
 EXTRA_OBJS += $(call TOBUILDDIR, $(LOCAL_DIR))/sensor_driver/icm20602.o
 EXTRA_OBJS += $(call TOBUILDDIR, $(LOCAL_DIR))/sensor_driver/spl06.o
+EXTRA_OBJS += $(call TOBUILDDIR, $(LOCAL_DIR))/sensor_driver/ist8307a_imp.o
 endif
 
 include make/module.mk
