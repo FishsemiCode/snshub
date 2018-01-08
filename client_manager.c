@@ -750,7 +750,7 @@ static osStatus_t cmgr_init()
     osThreadAttr_t thread_attr = {};
 
     /* initialize the circular event buffer */
-    ret = circ_buffer_init(&cmgr_buffer, "cmgr event", sizeof(struct sensor_event), 32);
+    ret = circ_buffer_init(&cmgr_buffer, "cmgr event", sizeof(struct sensor_event), 128);
     if (ret) {
         printf("event buffer init failed:%d\n", ret);
         return osError;
