@@ -27,7 +27,7 @@ MODULE_SRCS += \
 	$(LOCAL_DIR)/sensor_manager.c \
 	$(LOCAL_DIR)/client_manager.c \
 	$(LOCAL_DIR)/circ_buffer.c \
-	$(LOCAL_DIR)/sensor_board_fimi.c \
+	$(LOCAL_DIR)/sensor_board_bumblebee.c \
 	$(LOCAL_DIR)/algo_manager.c \
 	$(LOCAL_DIR)/sensor_port.c \
 	$(LOCAL_DIR)/sensor_port_i2c.c \
@@ -39,7 +39,7 @@ MODULE_SRCS += \
 	$(LOCAL_DIR)/sensor_driver/spl06.c \
 
 ifeq ($(ARCH),ceva)
-EXTRA_OBJS += $(call TOBUILDDIR, $(LOCAL_DIR))/sensor_board_fimi.o
+EXTRA_OBJS += $(call TOBUILDDIR, $(LOCAL_DIR))/sensor_board_bumblebee.o
 EXTRA_OBJS += $(call TOBUILDDIR, $(LOCAL_DIR))/client_manager.o
 EXTRA_OBJS += $(call TOBUILDDIR, $(LOCAL_DIR))/sensor_driver/icm20602.o
 EXTRA_OBJS += $(call TOBUILDDIR, $(LOCAL_DIR))/sensor_driver/spl06.o
