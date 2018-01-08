@@ -46,7 +46,7 @@
 
 #define SPI_TIMEOUT             (osMsecToTick(1000))
 #define SPI_FLAG_COMPLETE       0x01
-#define MAX_TRANSFER_LENGTH     64
+#define MAX_TRANSFER_LENGTH     256
 
 struct transfer_st {
     osThreadId_t thread;
