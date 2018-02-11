@@ -109,6 +109,13 @@ struct sensor_vector {
     float z;
 };
 
+struct sensor_vector_temp {
+    float x;
+    float y;
+    float z;
+    float temperature;
+};
+
 struct sensor_vector_raw {
     int32_t x_raw;
     int32_t y_raw;
@@ -117,6 +124,11 @@ struct sensor_vector_raw {
 
 struct sensor_scalar {
     float value;
+};
+
+struct sensor_scalar_temp {
+    float value;
+    float temperature;
 };
 
 struct sensor_scalar_raw {
@@ -143,16 +155,25 @@ struct sensor_event {
         struct sensor_scalar_raw humidity_raw;
     };
     union {
-        float data[3];
+        float data[4];
         struct sensor_vector accel;
+        struct sensor_vector_temp accel_t;
         struct sensor_vector gyro;
+        struct sensor_vector_temp gyro_t;
         struct sensor_vector magnetic;
+        struct sensor_vector_temp magnetic_t;
         struct sensor_vector orientation;
+        struct sensor_vector_temp orientation_t;
         struct sensor_scalar light;
+        struct sensor_scalar_temp light_t;
         struct sensor_scalar distance;
+        struct sensor_scalar_temp distance_t;
         struct sensor_scalar pressure;
+        struct sensor_scalar_temp pressure_t;
         struct sensor_scalar temperature;
+        struct sensor_scalar_temp temperature_t;
         struct sensor_scalar humidity;
+        struct sensor_scalar_temp humidity_t;
     };
 };
 
