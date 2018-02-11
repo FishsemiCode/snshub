@@ -44,6 +44,8 @@
 #include "utils.h"
 
 static const struct icm20602_platform_data icm20602_spdata = {
+    .irq_pin = 75,
+    .trigger_type = 1,
     .place = 1,
     .acc_range = 4,
     .acc_bw = 20,
@@ -59,7 +61,7 @@ static const struct sensor_platform_data icm20602_pdata = {
                 .master_id = 0,
                 .chip_select = 0,
                 .mode = SPI_CPOL1_CPHA1,
-                .max_frequency = 2000000,
+                .max_frequency = 8000000,
             },
         },
     },
@@ -78,7 +80,7 @@ static const struct sensor_platform_data spl0601_pdata = {
         .bus_type = BUS_I2C,
         .u = {
             .i2c_info = {
-                .master_id = 2,
+                .master_id = 0,
                 .slave_addr = 0x76,
             },
         },
