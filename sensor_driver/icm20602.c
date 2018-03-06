@@ -170,6 +170,9 @@
 #define DEFAULT_GYRO_RANGE          2000
 #define DEFAULT_GYRO_BW             20
 
+#define TEMP_SENSITIVITY            326.8f
+#define ROOMTEMP_OFFSET             25.0f
+
 struct icm20602_rtdata {
     struct sns_port port;
     osMutexId_t mutex;
@@ -518,9 +521,12 @@ static void icm20602_pended_handler(void *param1, uint32_t param2)
     uint16_t raw_temp = 0;
 
     ret = icm_regs_read(&rtdata->port, REG_INT_STATUS, &int_status, 1);
+
+    sensor_enable_gpio_irq(spdata->irq_pin, spdata->trigger_type);
+
     if (ret < 0) {
         printf("icm20602 reg REG_INT_STATUS read faild, err:%d\n", ret);
-        goto error;
+        return;
     }
 
     ret = icm_regs_read(&rtdata->port, REG_TEMP_DATA_OUTH, reg_data, 2);
@@ -535,7 +541,7 @@ static void icm20602_pended_handler(void *param1, uint32_t param2)
             event[num].data[0] = event[num].data_raw[0] * icm_acc_ranges[rtdata->acc_range_idx].resolution;
             event[num].data[1] = event[num].data_raw[1] * icm_acc_ranges[rtdata->acc_range_idx].resolution;
             event[num].data[2] = event[num].data_raw[2] * icm_acc_ranges[rtdata->acc_range_idx].resolution;
-            event[num].data[3] = raw_temp * spdata->temp_factor;
+            event[num].data[3] = raw_temp / TEMP_SENSITIVITY + ROOMTEMP_OFFSET;
             event[num].type = SENSOR_TYPE_ACCELEROMETER;
             event[num].timestamp = timestamp;
             num++;
@@ -549,7 +555,7 @@ static void icm20602_pended_handler(void *param1, uint32_t param2)
             event[num].data[0] = event[num].data_raw[0] * icm_gyro_ranges[rtdata->gyro_range_idx].resolution;
             event[num].data[1] = event[num].data_raw[1] * icm_gyro_ranges[rtdata->gyro_range_idx].resolution;
             event[num].data[2] = event[num].data_raw[2] * icm_gyro_ranges[rtdata->gyro_range_idx].resolution;
-            event[num].data[3] = raw_temp * spdata->temp_factor;
+            event[num].data[3] = raw_temp / TEMP_SENSITIVITY + ROOMTEMP_OFFSET;
             event[num].type = SENSOR_TYPE_GYROSCOPE;
             event[num].timestamp = timestamp;
             num++;
@@ -558,9 +564,6 @@ static void icm20602_pended_handler(void *param1, uint32_t param2)
 
     if (num > 0)
         smgr_push_data(event, num);
-
-error:
-    sensor_enable_gpio_irq(spdata->irq_pin, spdata->trigger_type);
 }
 
 static void icm20602_irq_handler(uint32_t pin, void *data)

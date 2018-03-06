@@ -46,7 +46,6 @@ struct icm20602_platform_data {
     int acc_bw;
     int gyro_range;
     int gyro_bw;
-    float temp_factor;
 };
 
 #endif
