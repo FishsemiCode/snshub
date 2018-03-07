@@ -556,6 +556,9 @@ int smgr_push_data(struct sensor_event *data, int num)
     struct sensor_ctx *ctx;
     int i;
 
+    if (!num)
+        return 0;
+
     if (!push_to_cmgr)
         return -EPIPE;
 
