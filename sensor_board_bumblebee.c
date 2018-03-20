@@ -81,7 +81,7 @@ static const struct sensor_platform_data spl0601_pdata = {
         .u = {
             .i2c_info = {
                 .master_id = 0,
-                .slave_addr = 0x76,
+                .slave_addr = 0x77,
             },
         },
     },
