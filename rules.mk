@@ -39,6 +39,7 @@ MODULE_SRCS += \
 	$(LOCAL_DIR)/sensor_port.c \
 	$(LOCAL_DIR)/sensor_port_i2c.c \
 	$(LOCAL_DIR)/sensor_port_spi.c \
+	$(LOCAL_DIR)/test_client.c \
 	$(LOCAL_DIR)/utils.c \
 
 ifeq ($(ARCH),ceva)
@@ -47,6 +48,7 @@ EXTRA_OBJS += $(call TOBUILDDIR, $(LOCAL_DIR))/client_manager.o
 EXTRA_OBJS += $(call TOBUILDDIR, $(LOCAL_DIR))/sensor_driver/icm20602.o
 EXTRA_OBJS += $(call TOBUILDDIR, $(LOCAL_DIR))/sensor_driver/spl06.o
 EXTRA_OBJS += $(call TOBUILDDIR, $(LOCAL_DIR))/sensor_driver/ist8307a_imp.o
+EXTRA_OBJS += $(call TOBUILDDIR, $(LOCAL_DIR))/test_client.o
 endif
 
 include make/module.mk
