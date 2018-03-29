@@ -40,6 +40,12 @@
 
 #include <sys/list.h>
 
+enum work_priorty {
+    HIGH_WORK = 0,
+    LOW_WORK,
+    PRI_NUM
+};
+
 struct sensor_ctx {
     struct sensor_t *sensor;
     const struct sensor_dev *sdev;
@@ -55,6 +61,8 @@ struct ctx_list_node {
     struct list_node node;
 };
 
+typedef void (*smgr_work_func) (void *data, int64_t ts);
+
 /*XXX: this typedef should be in client_mmanager header file, and should be
  * implemented in client manager */
 typedef int (*cmgr_push_event)(struct sensor_event *data, int num);
@@ -67,5 +75,6 @@ int smgr_set_delay(int handle, uint32_t us);
 int smgr_push_data(struct sensor_event *data, int num);
 int smgr_handle_event(struct sensor_event *event);
 bool smgr_is_sensor_onchange(struct sensor_t *sensor);
+int smgr_schedule_work(smgr_work_func func, void *data, int64_t ts, uint32_t priority);
 
 #endif

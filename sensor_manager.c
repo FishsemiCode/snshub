@@ -58,6 +58,14 @@ static struct sensor_t sensor_list[SMGR_MAX_SENSORS];
 static struct sensor_ctx sensor_context[SMGR_MAX_SENSORS];
 static int smgr_sensor_num;
 
+static osMessageQueueId_t smgr_workqueue[PRI_NUM];
+
+struct smgr_work {
+    smgr_work_func func;
+    void *data;
+    int64_t ts;
+};
+
 struct virtual_sensor_desc {
     char *name;
     char *vendor;
@@ -386,6 +394,81 @@ static int probe_sensors()
     return 0;
 }
 
+static void smgr_work_thread(void *argument)
+{
+    osMessageQueueId_t queue = argument;
+    struct smgr_work work;
+    osStatus_t status;
+
+    while (1) {
+        status = osMessageQueueGet(queue, &work, NULL, osWaitForever);
+        if (status != osOK) {
+            printf("%s fail to get message %d\n", osThreadGetName(osThreadGetId()), status);
+            continue;
+        }
+
+        if (work.func)
+            work.func(work.data, work.ts);
+    }
+}
+
+int smgr_schedule_work(smgr_work_func func, void *data, int64_t ts, uint32_t priority)
+{
+    struct smgr_work work;
+    osStatus_t status;
+
+    if (priority >= PRI_NUM)
+        return -EINVAL;
+
+    work.func = func;
+    work.data = data;
+    work.ts = ts;
+
+    status = osMessageQueuePut(smgr_workqueue[priority], &work, 0, 0);
+
+    return status == osOK ? 0 : -EBUSY;
+}
+
+static int smgr_create_workqueue()
+{
+    osMessageQueueAttr_t queue_attr = {};
+    osThreadAttr_t thread_attr = {};
+    osThreadId_t thread_hi, thread_low;
+
+    queue_attr.name = "smgr_hi_queue";
+    smgr_workqueue[HIGH_WORK] = osMessageQueueNew(64, sizeof(struct smgr_work), &queue_attr);
+    if (smgr_workqueue[HIGH_WORK] == NULL)
+        return osErrorNoMemory;
+
+    queue_attr.name = "smgr_low_queue";
+    smgr_workqueue[LOW_WORK] = osMessageQueueNew(32, sizeof(struct smgr_work), &queue_attr);
+    if (smgr_workqueue[LOW_WORK] == NULL)
+        goto low_queue_err;
+
+    thread_attr.name = "smgr_hi";
+    thread_attr.priority = osPriorityRealtime5;
+    thread_hi = osThreadNew(smgr_work_thread, smgr_workqueue[HIGH_WORK], &thread_attr);
+    if (thread_hi == NULL)
+        goto hi_thread_err;
+
+    thread_attr.name = "smgr_low";
+    thread_attr.priority = osPriorityRealtime3;
+    thread_low = osThreadNew(smgr_work_thread, smgr_workqueue[LOW_WORK], &thread_attr);
+    if (thread_low == NULL)
+        goto low_thread_err;
+
+    return 0;
+
+low_thread_err:
+    osThreadTerminate(thread_hi);
+hi_thread_err:
+    osMessageQueueDelete(smgr_workqueue[LOW_WORK]);
+low_queue_err:
+    osMessageQueueDelete(smgr_workqueue[HIGH_WORK]);
+
+    return osErrorNoMemory;
+}
+
 /* probe all hardware sensors via hw_sensors interface, and then
  * generate the virtual sensors with the provided algorithm.
  * this one must be inited by osInitDef after the hardware's
@@ -406,10 +489,12 @@ int smgr_init(cmgr_push_event push_event, cmgr_handle_dispatch dispatch)
         sensor_context[i].sensor = &sensor_list[i];
 
     ret = probe_sensors();
+    if (ret) {
+        printf("smgr_init: result=%d\n", ret);
+        return ret;
+    }
 
-    printf("smgr_init: result=%d\n", ret);
-
-    return ret;
+    return smgr_create_workqueue();
 }
 
 /* get all of sensors, both hardware and virtual sensors */
