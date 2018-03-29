@@ -90,6 +90,27 @@ static inline int ist_regs_read(struct sns_port *port, uint8_t reg, void *data, 
     return sns_port_read(port, reg | modify, data, len);
 }
 
+#if CHAR_BIT == 8
+#define ist_regs_c2b_read(port, reg, data, len) ist_regs_read(port, reg, data, len)
+#else
+static inline int ist_regs_c2b_read(struct sns_port *port, uint8_t reg, void *data, int len)
+{
+    char cbuff[16];
+    int ret;
+
+    if (len > 16)
+        return -EINVAL;
+
+    ret = ist_regs_read(port, reg, cbuff, len);
+    if (ret)
+        return ret;
+
+    c2bcpy(data, cbuff, len, false);
+
+    return ret;
+}
+#endif
+
 static inline int ist_reg_write(struct sns_port *port, uint8_t reg, uint8_t reg_data)
 {
     return sns_port_write(port, reg, &reg_data, 1);
@@ -133,11 +154,11 @@ static void ist8307a_worker(void *data, int64_t ts)
         return;
 
     if (rtdata->reading == true) {
-        ret = ist_regs_read(&rtdata->port, IST8307A_REG_DATA_TEMPL, &raw_temp, 1 * 2);
+        ret = ist_regs_c2b_read(&rtdata->port, IST8307A_REG_DATA_TEMPL, &raw_temp, 1 * 2);
         if (ret)
             return;
 
-        ret = ist_regs_read(&rtdata->port, IST8307A_REG_DATAX, reg_data, 3 * 2);
+        ret = ist_regs_c2b_read(&rtdata->port, IST8307A_REG_DATAX, reg_data, 3 * 2);
         if (!ret) {
             remap_vector_raw16to32_axis(reg_data, event.data_raw, spdata->place);
             event.data[0] = event.data_raw[0] * MAG_XY_RESOLUTION;
