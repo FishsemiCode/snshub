@@ -564,16 +564,16 @@ static bool ltr579_is_near_far_changed(struct sensor_dev *dev, uint16_t raw)
     return changed;
 }
 
-static void ltr579_prox_timer_cb(void *arg)
+static void ltr579_prox_worker(void *data, int64_t ts)
 {
-    struct sensor_dev *dev = arg;
+    struct sensor_dev *dev = data;
     struct ltr579_rtdata *rtdata = dev->rtdata;
     struct sensor_event prox_event;
     uint16_t raw;
     bool changed;
     int ret = 0;
 
-    prox_event.timestamp = get_timestamp();
+    prox_event.timestamp = ts;
 
     osMutexAcquire(rtdata->mutex, osWaitForever);
 
@@ -601,6 +601,11 @@ prx_read_err:
 prx_state_err:
 
     osMutexRelease(rtdata->mutex);
+}
+
+static void ltr579_prox_timer_cb(void *arg)
+{
+    smgr_schedule_work(ltr579_prox_worker, arg, get_timestamp(), LOW_WORK);
 }
 
 static int ltr579_als_read(struct sensor_dev *dev)
@@ -666,16 +671,16 @@ static int ltr579_als_adjust_resolution(struct sensor_dev *dev)
     return 0;
 }
 
-static void ltr579_als_timer_cb(void *arg)
+static void ltr579_als_worker(void *data, int64_t ts)
 {
-    struct sensor_dev *dev = arg;
+    struct sensor_dev *dev = data;
     struct ltr579_rtdata *rtdata = dev->rtdata;
     struct sensor_event als_event;
     int ret = 0;
     int raw;
     bool changed;
 
-    als_event.timestamp = get_timestamp();
+    als_event.timestamp = ts;
 
     osMutexAcquire(rtdata->mutex, osWaitForever);
 
@@ -706,6 +711,11 @@ static void ltr579_als_timer_cb(void *arg)
 als_read_err:
 als_state_err:
     osMutexRelease(rtdata->mutex);
+}
+
+static void ltr579_als_timer_cb(void *arg)
+{
+    smgr_schedule_work(ltr579_als_worker, arg, get_timestamp(), LOW_WORK);
 }
 
 static int ltr579_probe(const struct sensor_platform_data *pdata,

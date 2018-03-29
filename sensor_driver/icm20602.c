@@ -509,11 +509,11 @@ static void icm_convert_reg_to_event(int8_t *reg_data, struct sensor_event *even
     remap_vector_raw16to32_axis(raw_data, event->data_raw, place);
 }
 
-static void icm20602_pended_handler(void *param1, uint32_t param2)
+static void icm20602_worker(void *data, int64_t ts)
 {
-    struct icm20602_rtdata *rtdata = param1;
+    struct icm20602_rtdata *rtdata = data;
     struct icm20602_platform_data *spdata = rtdata->pdata->spdata;
-    int64_t timestamp = param2;
+    int64_t timestamp = ts;
     struct sensor_event event[2];
     int8_t reg_data[6];
     int idx = rtdata->actual_odr_idx;
@@ -572,9 +572,9 @@ static void icm20602_irq_handler(uint32_t pin, void *data)
     const struct icm20602_platform_data *spdata = rtdata->pdata->spdata;
     int64_t timestamp = get_timestamp();
 
-    /* this is an IRQ context, we must use the pended handler
+    /* this is an IRQ context, we must use the pended worker
      * since the i2c access will be blocked */
-    osPendFunctionCall(icm20602_pended_handler, rtdata, timestamp);
+    smgr_schedule_work(icm20602_worker, rtdata, timestamp, HIGH_WORK);
     /* XXX: because it's a level triggered interrupt, the handler would be called
      * frequetly until the pended handler is executed to read fifo data register.
      * so we need to temperarily disable the gpio interrupt and then re-enable it

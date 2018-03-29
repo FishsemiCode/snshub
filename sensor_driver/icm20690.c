@@ -190,8 +190,6 @@ struct icm20690_rtdata {
     int gyro_expect_odr;
 
     int actual_odr_idx;
-
-    int64_t timestamp;
 };
 
 struct icm_param_range {
@@ -545,12 +543,12 @@ static void icm_convert_reg_to_event(int8_t *reg_data, struct sensor_event *even
     remap_vector_raw16to32_axis(raw_data, event->data_raw, place);
 }
 
-static void icm20690_pended_handler(void *param1, uint32_t param2)
+static void icm20690_worker(void *data, int64_t ts)
 {
-    struct icm20690_rtdata *rtdata = param1;
+    struct icm20690_rtdata *rtdata = data;
     const struct icm20690_platform_data *spdata = rtdata->pdata->spdata;
     struct sensor_event event[2];
-    int64_t timestamp = rtdata->timestamp;
+    int64_t timestamp = ts;
     uint8_t int_status = 0, num = 0;
     int8_t reg_data[6];
     int ret;
@@ -598,10 +596,9 @@ static void icm20690_irq_handler(uint32_t pin, void *data)
     struct icm20690_rtdata *rtdata = data;
     const struct icm20690_platform_data *spdata = rtdata->pdata->spdata;
 
-    rtdata->timestamp = get_timestamp();
     /* this is an IRQ context, we must use the pended handler
      * since the i2c access will be blocked */
-    osPendFunctionCall(icm20690_pended_handler, rtdata, 0);
+    smgr_schedule_work(icm20690_worker, rtdata, get_timestamp(), HIGH_WORK);
     /* XXX: because it's a level triggered interrupt, the handler would be called
      * frequetly until the pended handler is executed to read the interrupt status register.
      * so we need to temperarily disable the gpio interrupt and then re-enable it in the pended

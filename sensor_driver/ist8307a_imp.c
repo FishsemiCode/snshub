@@ -110,13 +110,13 @@ static int ist_reg_update(struct sns_port *port, uint8_t reg, uint8_t mask, uint
     return sns_port_write(port, reg, &ori, 1);
 }
 
-static void ist8307a_poller(void *arg)
+static void ist8307a_worker(void *data, int64_t ts)
 {
-    struct ist8307a_rtdata *rtdata = arg;
+    struct ist8307a_rtdata *rtdata = data;
     struct sns_port *port = &rtdata->port;
     struct ist8307a_platform_data *spdata = rtdata->pdata->spdata;
     struct sensor_event event;
-    int64_t timestamp = get_timestamp();
+    int64_t timestamp = ts;
     uint8_t status_reg_1 = 0;
     uint16_t reg_data[3];
     int ret;
@@ -150,6 +150,11 @@ static void ist8307a_poller(void *arg)
             smgr_push_data(&event, 1);
         }
     }
+}
+
+static void ist8307a_timer_cb(void *arg)
+{
+    smgr_schedule_work(ist8307a_worker, arg, get_timestamp(), LOW_WORK);
 }
 
 static int ist8307a_init_chip(struct ist8307a_rtdata *rtdata)
@@ -345,7 +350,7 @@ static int ist8307a_probe(const struct sensor_platform_data *pdata,
         goto mutex_err;
     }
 
-    rtdata->poll_timer = osTimerNew(ist8307a_poller, osTimerPeriodic, rtdata, NULL);
+    rtdata->poll_timer = osTimerNew(ist8307a_timer_cb, osTimerPeriodic, rtdata, NULL);
     if (ret) {
         printf("failed to create poller timer for ist8307a:%d\n", ret);
         goto timer_err;

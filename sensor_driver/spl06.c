@@ -402,9 +402,9 @@ static int spl0601_sensor_data_get(struct spl0601_rtdata *rtdata)
     return 0;
 }
 
-static void spl0601_timer_cb(void *arg)
+static void spl0601_worker(void *data, int64_t ts)
 {
-    struct spl0601_rtdata *rtdata = arg;
+    struct spl0601_rtdata *rtdata = data;
     struct sensor_event prox_event;
     struct sns_port *sport = &rtdata->port;
     uint8_t reg;
@@ -413,7 +413,7 @@ static void spl0601_timer_cb(void *arg)
         return;
 
     memset(&prox_event, 0, sizeof(prox_event));
-    prox_event.timestamp = get_timestamp();
+    prox_event.timestamp = ts;
 
     if (!rtdata->temp_enabled && !rtdata->press_enabled) {
         printf("both disabled\n");
@@ -437,6 +437,11 @@ static void spl0601_timer_cb(void *arg)
     }
 
     spl0601_sensor_data_trig(rtdata);
+}
+
+static void spl0601_timer_cb(void *arg)
+{
+    smgr_schedule_work(spl0601_worker, arg, get_timestamp(), LOW_WORK);
 }
 
 static int spl0601_sensor_init(struct spl0601_rtdata *rtdata)
