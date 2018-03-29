@@ -512,18 +512,16 @@ static void icm_convert_reg_to_event(int8_t *reg_data, struct sensor_event *even
 static void icm20602_worker(void *data, int64_t ts)
 {
     struct icm20602_rtdata *rtdata = data;
-    struct icm20602_platform_data *spdata = rtdata->pdata->spdata;
+    const struct icm20602_platform_data *spdata = rtdata->pdata->spdata;
     int64_t timestamp = ts;
     struct sensor_event event[2];
     int8_t reg_data[6];
-    int idx = rtdata->actual_odr_idx;
-    uint8_t num = 0, int_status = 0, ret = 0;
+    uint8_t num = 0, int_status = 0;
     uint16_t raw_temp = 0;
+    int ret;
 
     ret = icm_regs_read(&rtdata->port, REG_INT_STATUS, &int_status, 1);
-
     sensor_enable_gpio_irq(spdata->irq_pin, spdata->trigger_type);
-
     if (ret < 0) {
         printf("icm20602 reg REG_INT_STATUS read faild, err:%d\n", ret);
         return;

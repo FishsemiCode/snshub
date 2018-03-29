@@ -95,7 +95,7 @@ static inline int ist_reg_write(struct sns_port *port, uint8_t reg, uint8_t reg_
     return sns_port_write(port, reg, &reg_data, 1);
 }
 
-static int ist_reg_update(struct sns_port *port, uint8_t reg, uint8_t mask, uint8_t value)
+static inline int ist_reg_update(struct sns_port *port, uint8_t reg, uint8_t mask, uint8_t value)
 {
     int ret = 0;
     uint8_t ori;
@@ -114,11 +114,11 @@ static void ist8307a_worker(void *data, int64_t ts)
 {
     struct ist8307a_rtdata *rtdata = data;
     struct sns_port *port = &rtdata->port;
-    struct ist8307a_platform_data *spdata = rtdata->pdata->spdata;
+    const struct ist8307a_platform_data *spdata = rtdata->pdata->spdata;
     struct sensor_event event;
     int64_t timestamp = ts;
     uint8_t status_reg_1 = 0;
-    uint16_t reg_data[3];
+    int16_t reg_data[3];
     int ret;
     uint16_t raw_temp = 0;
 
