@@ -46,7 +46,7 @@
 static const struct icm20602_platform_data icm20602_spdata = {
     .irq_pin = 75,
     .trigger_type = 1,
-    .place = 1,
+    .place = 4,
     .acc_range = 4,
     .acc_bw = 20,
     .gyro_range = 2000,
@@ -89,7 +89,7 @@ static const struct sensor_platform_data spl0601_pdata = {
 };
 
 static const struct ist8307a_platform_data ist8307a_spdata = {
-    .place = 1,
+    .place = 7,
 };
 static const struct sensor_platform_data ist8307a_pdata = {
     .name = "isentek,ist8307a",
