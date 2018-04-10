@@ -160,6 +160,9 @@ static void ist8307a_worker(void *data, int64_t ts)
 
         ret = ist_regs_c2b_read(&rtdata->port, IST8307A_REG_DATAX, reg_data, 3 * 2);
         if (!ret) {
+            /* this sensor disobeys Right Hand Rule, so we need to modify it here */
+            reg_data[0] *= -1;
+
             remap_vector_raw16to32_axis(reg_data, event.data_raw, spdata->place);
             event.data[0] = event.data_raw[0] * MAG_XY_RESOLUTION;
             event.data[1] = event.data_raw[1] * MAG_XY_RESOLUTION;
