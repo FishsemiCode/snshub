@@ -126,10 +126,10 @@
 #define GFCHOICE_B_MASK             (0x03 << 0)
 #define GFCHOICE_DLPF               0x00
 #define GFS_MASK                    (0x03 << 3)
-#define GFS_250_DPS                 (0 << 2)
-#define GFS_500_DPS                 (1 << 2)
-#define GFS_1000_DPS                (2 << 2)
-#define GFS_2000_DPS                (3 << 2)
+#define GFS_250_DPS                 (0 << 3)
+#define GFS_500_DPS                 (1 << 3)
+#define GFS_1000_DPS                (2 << 3)
+#define GFS_2000_DPS                (3 << 3)
 
 /* field for REG_ACC_CONFIGURATION */
 #define AFS_OIS_2G                  (0x00)
