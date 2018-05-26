@@ -164,7 +164,7 @@ static int spi_xfer(struct sns_port *port, struct spi_msg *msg)
     master->drv_spi->Control(control_code, info->max_frequency);
 
     control_code = ARM_SPI_CONTROL_SS | spi_cpol_cpha[info->mode];
-    master->drv_spi->Control(control_code, ARM_SPI_SS_ACTIVE);
+    master->drv_spi->Control(control_code, ARM_SPI_SS_ACTIVE | info->chip_select);
 
     master->drv_spi->PowerControl(ARM_POWER_FULL);
 
@@ -195,7 +195,7 @@ static int spi_xfer(struct sns_port *port, struct spi_msg *msg)
 transfer_err:
     master->st.thread = NULL;
     master->drv_spi->PowerControl(ARM_POWER_OFF);
-    master->drv_spi->Control(ARM_SPI_CONTROL_SS, ARM_SPI_SS_INACTIVE);
+    master->drv_spi->Control(ARM_SPI_CONTROL_SS, ARM_SPI_SS_INACTIVE | info->chip_select);
     osEnableStandby();
 
     return ret;
