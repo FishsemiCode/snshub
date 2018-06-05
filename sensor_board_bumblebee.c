@@ -107,8 +107,8 @@ static const struct sensor_platform_data ist8307a_pdata = {
 
 static const struct hw_version bd_versions[] = {
     {
-        .system = "0xfd7bbda9fd0300",
-        .board = "0x00000006",
+        .system = "any",
+        .board = "meri",
     },
     {
         .system = NULL,

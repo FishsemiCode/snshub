@@ -74,14 +74,10 @@ static const struct sensor_platform_data **hw_sensors_get_pdata()
     const struct hw_version *phv;
     const struct board_info *pbrd;
 
-#if 0
-    hv.system = getenv("/chosen/device");
-    hv.board = getenv("/chosen/board-id");
-#else
-    hv.system = "0xfd7bbda9fd0300";
-    hv.board = "0x00000006";
-#endif
+    hv.system = "any";
+    hv.board = getenv("/chosen/device");
     printf("env: system=%s, board=%s\n", hv.system, hv.board);
+
     if (!hv.system || !hv.board)
         return NULL;
 
