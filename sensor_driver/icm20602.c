@@ -178,6 +178,8 @@ struct icm20602_rtdata {
     osMutexId_t mutex;
     const struct sensor_platform_data *pdata;
 
+    osTimerId_t timer;
+
     bool acc_enabled;
     int acc_range_idx;
     int acc_bw_idx;
@@ -343,6 +345,10 @@ static void icm_sync_odr(struct icm20602_rtdata *rtdata)
     if (rtdata->actual_odr_idx != idx) {
         rtdata->actual_odr_idx = idx;
         icm_reg_write(port, REG_SMPLRT_DIV, icm_acc_gyro_odrs[idx].reg_value);
+
+        if (rtdata->timer)
+            osTimerStart(rtdata->timer,
+                    osUsecToTick(1000000 / icm_acc_gyro_odrs[rtdata->actual_odr_idx].odr));
     }
 }
 
@@ -373,17 +379,30 @@ static int icm_gyro_enable(struct icm20602_rtdata *rtdata, bool enable)
 static int icm20602_activate(const struct sensor_dev *dev, bool enable)
 {
     struct icm20602_rtdata *rtdata = dev->rtdata;
+    bool old_status, new_status;
 
     /* XXX: just non-fifo mode for now, later will create a fifo procedure */
     osMutexAcquire(rtdata->mutex, osWaitForever);
 
     printf("icm: activate %s to %s\n", dev->name, enable ? "enable" : "disable");
+    old_status = rtdata->acc_enabled || rtdata->gyro_enabled;
     if (dev->type == SENSOR_TYPE_ACCELEROMETER && rtdata->acc_enabled != enable) {
         icm_acc_enable(rtdata, enable);
         rtdata->acc_enabled = enable;
     } else if (dev->type == SENSOR_TYPE_GYROSCOPE && rtdata->gyro_enabled != enable) {
         icm_gyro_enable(rtdata, enable);
         rtdata->gyro_enabled = enable;
+    }
+
+    if (rtdata->timer) {
+        new_status = rtdata->acc_enabled || rtdata->gyro_enabled;
+        if (old_status != new_status) {
+            if (new_status)
+                osTimerStart(rtdata->timer,
+                        osUsecToTick(1000000 / icm_acc_gyro_odrs[rtdata->actual_odr_idx].odr));
+            else
+                osTimerStop(rtdata->timer);
+        }
     }
 
     osMutexRelease(rtdata->mutex);
@@ -521,7 +540,8 @@ static void icm20602_worker(void *data, int64_t ts)
     int ret;
 
     ret = icm_regs_read(&rtdata->port, REG_INT_STATUS, &int_status, 1);
-    sensor_enable_gpio_irq(spdata->irq_pin, spdata->trigger_type);
+    if (spdata->irq_pin)
+        sensor_enable_gpio_irq(spdata->irq_pin, spdata->trigger_type);
     if (ret < 0) {
         printf("icm20602 reg REG_INT_STATUS read faild, err:%d\n", ret);
         return;
@@ -578,6 +598,11 @@ static void icm20602_irq_handler(uint32_t pin, void *data)
      * so we need to temperarily disable the gpio interrupt and then re-enable it
      * in the pended handler */
     sensor_enable_gpio_irq(spdata->irq_pin, 0);
+}
+
+static void icm20602_timer_cb(void *arg)
+{
+    smgr_schedule_work(icm20602_worker, arg, get_timestamp(), HIGH_WORK);
 }
 
 static int icm20602_check_id(struct sns_port *port)
@@ -736,10 +761,20 @@ static int icm20602_probe(const struct sensor_platform_data *pdata,
         goto mutex_err;
     }
 
-    ret = sensor_register_gpio_irq(spdata->irq_pin, spdata->trigger_type, icm20602_irq_handler, rtdata);
-    if (ret) {
-        printf("failed to register irq handler for icm20602:%d\n", ret);
-        goto gpio_irq_err;
+    if (spdata->irq_pin) {
+        ret = sensor_register_gpio_irq(spdata->irq_pin, spdata->trigger_type,
+                                icm20602_irq_handler, rtdata);
+        if (ret) {
+            printf("failed to register irq handler for icm20602:%d\n", ret);
+            goto gpio_irq_err;
+        }
+    } else {
+        rtdata->timer = osTimerNew(icm20602_timer_cb, osTimerPeriodic, rtdata, NULL);
+        if (!rtdata->timer) {
+            printf("failed to create timer for icm20602 sensor\n");
+            ret = -ETIME;
+            goto timer_err;
+        }
     }
 
     init_sensor_dev(&sdevs[0], ACCEL_SENSOR, SENSOR_TYPE_ACCELEROMETER,
@@ -754,6 +789,7 @@ static int icm20602_probe(const struct sensor_platform_data *pdata,
 
     return ret;
 
+timer_err:
 gpio_irq_err:
     osMutexDelete(rtdata->mutex);
 mutex_err:
