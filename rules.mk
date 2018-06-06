@@ -31,6 +31,7 @@ MODULE_SRCS += \
 	$(LOCAL_DIR)/hw_sensors.c \
 	$(LOCAL_DIR)/sensor_board.c \
 	$(LOCAL_DIR)/sensor_board_bumblebee.c \
+	$(LOCAL_DIR)/sensor_board_jetfire.c \
 	$(LOCAL_DIR)/sensor_driver/icm20602.c \
 	$(LOCAL_DIR)/sensor_driver/icm20690.c \
 	$(LOCAL_DIR)/sensor_driver/ltr579.c \
