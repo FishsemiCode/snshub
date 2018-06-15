@@ -40,6 +40,7 @@
 #include "hw_sensors.h"
 #include "icm20602.h"
 #include "utils.h"
+#include "dps310.h"
 
 static const struct icm20602_platform_data icm20602_spdata = {
     .place = 4,
@@ -64,6 +65,23 @@ static const struct sensor_platform_data icm20602_pdata = {
     .spdata = &icm20602_spdata,
 };
 
+static const struct dps310_platform_data dps310_spdata = {
+
+};
+static const struct sensor_platform_data dps310_pdata = {
+    .name = "infineon,dps310",
+    .bus_info = {
+        .bus_type = BUS_I2C,
+        .u = {
+            .i2c_info = {
+                .master_id = 1,
+                .slave_addr = 0x77,
+            },
+        },
+    },
+    .spdata = &dps310_spdata,
+};
+
 static const struct hw_version bd_versions[] = {
     {
         .system = "any",
@@ -76,6 +94,7 @@ static const struct hw_version bd_versions[] = {
 
 static const struct sensor_platform_data *sensor_pdata[] = {
     &icm20602_pdata,
+    &dps310_pdata,
     NULL,
 };
 
