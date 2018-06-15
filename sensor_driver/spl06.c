@@ -569,6 +569,11 @@ static void spl_sync_odr(struct spl0601_rtdata *rtdata)
               rtdata->udelay, actual_odr, idx);
     spl0601_rateset(rtdata, SENSOR_PRESSURE, spl0601_odr_array[idx].measurement_rate, spl0601_odr_array[idx].oversampling_rate);
     spl0601_rateset(rtdata, SENSOR_TEMPERATURE, spl0601_odr_array[idx].measurement_rate, spl0601_odr_array[idx].oversampling_rate);
+
+    if (rtdata->timer && (rtdata->press_enabled || rtdata->temp_enabled)) {
+        spl0601_sensor_data_trig(rtdata);
+        osTimerStart(rtdata->timer, osUsecToTick(spl0601_odr_array[idx].odr));
+    }
 }
 
 static int spl0601_set_delay(const struct sensor_dev *dev, uint32_t us)
