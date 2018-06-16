@@ -1,5 +1,6 @@
 #include <cmsis_os2.h>
 #include <Driver_USART.h>
+#include <Driver_Def.h>
 #include <errno.h>
 #include <assert.h>
 #include <stdlib.h>
@@ -20,7 +21,7 @@
 #define PRX_SENSOR_RATE         10
 #define ALS_SENSOR_RATE         10
 
-#define uart    (Driver_USART[3])
+#define uart    (Driver_USART[DRV_USARTV])
 
 struct sensor_config {
     int32_t type;
