@@ -21,7 +21,7 @@
 #define PRX_SENSOR_RATE         10
 #define ALS_SENSOR_RATE         10
 
-#define uart    (Driver_USART[DRV_USARTV])
+#define uart    (Driver_USART[DRV_USARTR0])
 
 struct sensor_config {
     int32_t type;
