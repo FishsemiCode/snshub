@@ -1,14 +1,14 @@
 /* Copyright Statement:
  *
- * This software/firmware and related documentation ("Pinecone Software") are
+ * This software/firmware and related documentation ("Fishsemi Software") are
  * protected under relevant copyright laws. The information contained herein is
- * confidential and proprietary to Pinecone Inc. and/or its licensors. Without
- * the prior written permission of Pinecone inc. and/or its licensors, any
- * reproduction, modification, use or disclosure of Pinecone Software, and
+ * confidential and proprietary to Fishsemi Inc. and/or its licensors. Without
+ * the prior written permission of Fishsemi inc. and/or its licensors, any
+ * reproduction, modification, use or disclosure of Fishsemi Software, and
  * information contained herein, in whole or in part, shall be strictly
  * prohibited.
  *
- * Pinecone Inc. (C) 2017. All rights reserved.
+ * Fishsemi Inc. (C) 2019. All rights reserved.
  *
  * BY OPENING THIS FILE, RECEIVER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
  * THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("PINECONE SOFTWARE")
@@ -30,229 +30,74 @@
  * PINECONE SOFTWARE AT ISSUE, OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE
  * CHARGE PAID BY RECEIVER TO PINECONE FOR SUCH PINECONE SOFTWARE AT ISSUE.
  *
- * The following software/firmware and/or related documentation ("Pinecone
- * Software") have been modified by Pinecone Inc. All revisions are subject to
- * any receiver's applicable license agreements with Pinecone Inc.
+ * The following software/firmware and/or related documentation ("Fishsemi
+ * Software") have been modified by Fishsemi Inc. All revisions are subject to
+ * any receiver's applicable license agreements with Fishsemi Inc.
  */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#include <cmsis_os2.h>
-#include <sys/list.h>
-#include <Driver_I2C.h>
+#include <nuttx/i2c/i2c_master.h>
 #include "sensor_port_i2c.h"
+#include "utils.h"
 
-#define I2C_TIMEOUT         (osMsecToTick(1000))
+#define MAX_WRITE_LENGTH  16
 
-#define I2C_FLAG_COMPLETE   0x01
-
-#define MAX_WRITE_LENGTH    16
-
-struct transfer_st {
-    osThreadId_t thread;
-    uint32_t event;
-};
-
-struct port_i2c_master {
-    int id;
-    ARM_DRIVER_I2C *drv_i2c;
-    osMutexId_t mutex;
-    struct transfer_st st;
-    struct list_node node;
-};
-
-static struct list_node i2c_masters = LIST_INITIAL_VALUE(i2c_masters);
-
-static int get_max_master_id()
+static int get_max_master_id(void)
 {
-    int i;
+  int i;
 
-    for (i = 0; Driver_I2C[i]; i++);
+  for (i = 0; g_i2c[i]; i++);
 
-    return i - 1;
+  return i - 1;
 }
 
-static struct port_i2c_master *get_i2c_master(ARM_DRIVER_I2C *drv_i2c)
+static int _i2c_read(FAR struct sns_port *port, uint8_t reg, FAR void *buff, size_t size)
 {
-    struct port_i2c_master *master;
+  FAR const struct sensor_i2c_info *i2c_info = &port->binfo->u.i2c_info;
+  FAR struct i2c_master_s *drv_i2c = port->master;
 
-    if (!list_is_empty(&i2c_masters)) {
-        list_for_every_entry(&i2c_masters, master, struct port_i2c_master, node) {
-            if (master->drv_i2c == drv_i2c) {
-                return master;
-            }
-        }
-    }
-
-    return NULL;
+  return i2c_writeread(drv_i2c, (FAR const struct i2c_config_s *)&(i2c_info->frequency), &reg, 1, buff, size);
 }
 
-static void i2c_signal_handler(uint32_t event, void *prv)
+static int _i2c_write(FAR struct sns_port *port, uint8_t reg, FAR void *buff, size_t size)
 {
-    struct port_i2c_master *master = prv;
-    osThreadId_t thread = master->st.thread;
+  FAR const struct sensor_i2c_info *i2c_info = &port->binfo->u.i2c_info;
+  FAR struct i2c_master_s *drv_i2c = port->master;
+  uint8_t data[MAX_WRITE_LENGTH + 1];
 
-    if (!thread) {
-        printf("error thread state\n");
-        return;
-    }
+  if (size > MAX_WRITE_LENGTH) {
+    snshuberr("too much write data\n");
+    return -EINVAL;
+  }
 
-    master->st.event = event;
-    osThreadFlagsSet(thread, I2C_FLAG_COMPLETE);
-}
+  data[0] = reg;
+  memcpy(&data[1], buff, size);
 
-static int init_i2c_master(struct port_i2c_master *master, ARM_DRIVER_I2C *drv_i2c)
-{
-    int ret;
-
-    ret = drv_i2c->SetExtHandler(i2c_signal_handler, master);
-    if (ret != ARM_DRIVER_OK) {
-        printf("init i2c master %d failed\n", master->id);
-        return ret;
-    }
-
-    master->mutex = osMutexNew(NULL);
-    if (!master->mutex) {
-        printf("create mutex failed for i2c master %d\n", master->id);
-        ret = -EPIPE;
-        goto create_mutex_err;
-    }
-
-    master->drv_i2c = drv_i2c;
-    list_add_tail(&i2c_masters, &master->node);
-    return 0;
-
-create_mutex_err:
-    drv_i2c->Uninitialize();
-
-    return ret;
-}
-
-static int i2c_xfer(struct port_i2c_master *master, ARM_I2C_MSG *msg, size_t msg_num)
-{
-    osThreadId_t thread;
-    ARM_I2C_STATUS status;
-    int ret;
-
-    osMutexAcquire(master->mutex, osWaitForever);
-
-    osDisableStandby();
-    thread = osThreadGetId();
-    master->st.thread = thread;
-
-    master->drv_i2c->PowerControl(ARM_POWER_FULL);
-    ret = master->drv_i2c->MasterTransfer(msg, msg_num);
-    if (ret != ARM_DRIVER_OK) {
-        printf("i2c transfer failed:%d\n", ret);
-        goto transfer_err;
-    }
-
-    ret = osThreadFlagsWait(I2C_FLAG_COMPLETE, osFlagsWaitAny, I2C_TIMEOUT);
-    if (ret < 0) {
-        printf("i2c transfer wait err:%d\n", ret);
-        goto wait_err;
-    }
-
-    status = master->drv_i2c->GetStatus();
-    /*TODO: add some error handlering here, like recovery/print */
-
-    if (status.bus_error)
-        ret = -EIO;
-    else
-        ret = 0;
-
-wait_err:
-transfer_err:
-    master->st.thread = NULL;
-    master->drv_i2c->PowerControl(ARM_POWER_OFF);
-    osEnableStandby();
-    osMutexRelease(master->mutex);
-
-    return ret;
-}
-
-static int i2c_read(struct sns_port *port, uint8_t reg, void *buff, size_t size)
-{
-    struct port_i2c_master *master = port->master;
-    const struct sensor_i2c_info *i2c_info = &port->binfo->u.i2c_info;
-    ARM_I2C_MSG msg[2];
-
-    msg[0].addr = i2c_info->slave_addr;
-    msg[0].flags = 0;
-    msg[0].len = 1;
-    msg[0].buf = &reg;
-    msg[1].addr = i2c_info->slave_addr;
-    msg[1].flags = ARM_I2C_M_RD;
-    msg[1].len = size;
-    msg[1].buf = buff;
-
-    return i2c_xfer(master, msg, 2);
-}
-
-static int i2c_write(struct sns_port *port, uint8_t reg, void *buff, size_t size)
-{
-    struct port_i2c_master *master = port->master;
-    const struct sensor_i2c_info *i2c_info = &port->binfo->u.i2c_info;
-    ARM_I2C_MSG msg;
-    uint8_t data[MAX_WRITE_LENGTH + 1];
-
-    if (size > MAX_WRITE_LENGTH) {
-        printf("too much write data\n");
-        return -EINVAL;
-    }
-
-    data[0] = reg;
-    memcpy(&data[1], buff, size);
-
-    msg.addr = i2c_info->slave_addr;
-    msg.flags = 0;
-    msg.len = size + 1;
-    msg.buf = data;
-
-    return i2c_xfer(master, &msg, 1);
+  return i2c_write(drv_i2c, (FAR struct i2c_config_s *)&(i2c_info->frequency), data, size + 1);
 }
 
 static struct port_ops i2c_ops = {
-    .read = i2c_read,
-    .write = i2c_write,
+  .read = _i2c_read,
+  .write = _i2c_write,
 };
 
-int port_init_i2c(const struct sensor_bus_info *info, struct sns_port *port)
+int port_init_i2c(FAR const struct sensor_bus_info *info, FAR struct sns_port *port)
 {
-    struct port_i2c_master *master;
-    const struct sensor_i2c_info *i2c_info = &info->u.i2c_info;
-    ARM_DRIVER_I2C *drv_i2c;
-    int max_id;
-    int ret = 0;
+  FAR const struct sensor_i2c_info *i2c_info = &info->u.i2c_info;
+  int max_id;
 
-    max_id = get_max_master_id();
-    if (max_id < 0 || max_id < i2c_info->master_id) {
-        printf("no i2c master found\n");
-        return -ENODEV;
-    }
+  max_id = get_max_master_id();
+  if (max_id < 0 || max_id < i2c_info->master_id) {
+    snshuberr("no i2c master found\n");
+    return -ENODEV;
+  }
 
-    drv_i2c = Driver_I2C[i2c_info->master_id];
-    /* has this master been already initialized ? */
-    if (!(master = get_i2c_master(drv_i2c))) {
-        master = calloc(1, sizeof(*master));
-        if (!master) {
-            printf("failed to malloc for i2c master %d\n", i2c_info->master_id);
-            return -ENOMEM;
-        }
+  port->master = g_i2c[i2c_info->master_id];
+  port->ops = &i2c_ops;
+  port->binfo = info;
 
-        master->id = i2c_info->master_id;
-        ret = init_i2c_master(master, drv_i2c);
-        if (ret)
-            free(master);
-    }
-
-    if (!ret) {
-        port->master = master;
-        port->ops = &i2c_ops;
-        port->binfo = info;
-    }
-
-    return ret;
+  return 0;
 }

@@ -1,14 +1,14 @@
 /* Copyright Statement:
  *
- * This software/firmware and related documentation ("Pinecone Software") are
+ * This software/firmware and related documentation ("Fishsemi Software") are
  * protected under relevant copyright laws. The information contained herein is
- * confidential and proprietary to Pinecone Inc. and/or its licensors. Without
- * the prior written permission of Pinecone inc. and/or its licensors, any
- * reproduction, modification, use or disclosure of Pinecone Software, and
+ * confidential and proprietary to Fishsemi Inc. and/or its licensors. Without
+ * the prior written permission of Fishsemi inc. and/or its licensors, any
+ * reproduction, modification, use or disclosure of Fishsemi Software, and
  * information contained herein, in whole or in part, shall be strictly
  * prohibited.
  *
- * Pinecone Inc. (C) 2017. All rights reserved.
+ * Fishsemi Inc. (C) 2019. All rights reserved.
  *
  * BY OPENING THIS FILE, RECEIVER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
  * THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("PINECONE SOFTWARE")
@@ -30,21 +30,28 @@
  * PINECONE SOFTWARE AT ISSUE, OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE
  * CHARGE PAID BY RECEIVER TO PINECONE FOR SUCH PINECONE SOFTWARE AT ISSUE.
  *
- * The following software/firmware and/or related documentation ("Pinecone
- * Software") have been modified by Pinecone Inc. All revisions are subject to
- * any receiver's applicable license agreements with Pinecone Inc.
+ * The following software/firmware and/or related documentation ("Fishsemi
+ * Software") have been modified by Fishsemi Inc. All revisions are subject to
+ * any receiver's applicable license agreements with Fishsemi Inc.
  */
+
+/****************************************************************************
+ * Included Files
+ ****************************************************************************/
 
 #include <stdlib.h>
 #include "algo_manager.h"
 
-int amgr_register_algo(struct sensor_algo *algo)
+/****************************************************************************
+ * Public
+ ****************************************************************************/
+
+int amgr_register_algo(FAR struct sensor_algo *algo)
 {
-    return 0;
+  return 0;
 }
 
-struct sensor_algo *amgr_find_algo(int virtual_type)
+FAR struct sensor_algo *amgr_find_algo(int virtual_type)
 {
-
-    return NULL;
+  return NULL;
 }

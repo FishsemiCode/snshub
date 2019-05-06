@@ -1,14 +1,14 @@
 /* Copyright Statement:
  *
- * This software/firmware and related documentation ("Pinecone Software") are
+ * This software/firmware and related documentation ("Fishsemi Software") are
  * protected under relevant copyright laws. The information contained herein is
- * confidential and proprietary to Pinecone Inc. and/or its licensors. Without
- * the prior written permission of Pinecone inc. and/or its licensors, any
- * reproduction, modification, use or disclosure of Pinecone Software, and
+ * confidential and proprietary to Fishsemi Inc. and/or its licensors. Without
+ * the prior written permission of Fishsemi inc. and/or its licensors, any
+ * reproduction, modification, use or disclosure of Fishsemi Software, and
  * information contained herein, in whole or in part, shall be strictly
  * prohibited.
  *
- * Pinecone Inc. (C) 2017. All rights reserved.
+ * Fishsemi Inc. (C) 2019. All rights reserved.
  *
  * BY OPENING THIS FILE, RECEIVER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
  * THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("PINECONE SOFTWARE")
@@ -30,18 +30,43 @@
  * PINECONE SOFTWARE AT ISSUE, OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE
  * CHARGE PAID BY RECEIVER TO PINECONE FOR SUCH PINECONE SOFTWARE AT ISSUE.
  *
- * The following software/firmware and/or related documentation ("Pinecone
- * Software") have been modified by Pinecone Inc. All revisions are subject to
- * any receiver's applicable license agreements with Pinecone Inc.
+ * The following software/firmware and/or related documentation ("Fishsemi
+ * Software") have been modified by Fishsemi Inc. All revisions are subject to
+ * any receiver's applicable license agreements with Fishsemi Inc.
  */
 
-#ifndef __YAS537_H__
-#define __YAS537_H__
+#include "sensor_driver.h"
+#include "hw_sensors.h"
+#include "icm42605.h"
+#include "utils.h"
 
-struct yas537_platform_data {
-    int position;
-    int delay;
-    int matrix[9];
+extern struct sensor_driver icm42605_drv;
+
+static const struct icm42605_platform_data icm42605_spdata = {
+  .irq_pin = 10,
+  .trigger_type = IOEXPANDER_VAL_RISING,
+  .place = 1,
+};
+static const struct sensor_platform_data icm42605_pdata = {
+  .name = "invn,icm42605",
+  .bus_info = {
+    .bus_type = BUS_I2C,
+    .u = {
+      .i2c_info = {
+        .master_id = 0,
+        .slave_addr = 0x68,
+      },
+    },
+  },
+  .spdata = &icm42605_spdata,
 };
 
-#endif
+const struct sensor_platform_data *g_sensor_pdata[] = {
+  &icm42605_pdata,
+  NULL,
+};
+
+const struct sensor_driver *g_sensor_drv[] = {
+  &icm42605_drv,
+  NULL,
+};

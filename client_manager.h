@@ -1,14 +1,14 @@
 /* Copyright Statement:
  *
- * This software/firmware and related documentation ("Pinecone Software") are
+ * This software/firmware and related documentation ("Fishsemi Software") are
  * protected under relevant copyright laws. The information contained herein is
- * confidential and proprietary to Pinecone Inc. and/or its licensors. Without
- * the prior written permission of Pinecone inc. and/or its licensors, any
- * reproduction, modification, use or disclosure of Pinecone Software, and
+ * confidential and proprietary to Fishsemi Inc. and/or its licensors. Without
+ * the prior written permission of Fishsemi inc. and/or its licensors, any
+ * reproduction, modification, use or disclosure of Fishsemi Software, and
  * information contained herein, in whole or in part, shall be strictly
  * prohibited.
  *
- * Pinecone Inc. (C) 2017. All rights reserved.
+ * Fishsemi Inc. (C) 2019. All rights reserved.
  *
  * BY OPENING THIS FILE, RECEIVER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
  * THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("PINECONE SOFTWARE")
@@ -30,38 +30,42 @@
  * PINECONE SOFTWARE AT ISSUE, OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE
  * CHARGE PAID BY RECEIVER TO PINECONE FOR SUCH PINECONE SOFTWARE AT ISSUE.
  *
- * The following software/firmware and/or related documentation ("Pinecone
- * Software") have been modified by Pinecone Inc. All revisions are subject to
- * any receiver's applicable license agreements with Pinecone Inc.
+ * The following software/firmware and/or related documentation ("Fishsemi
+ * Software") have been modified by Fishsemi Inc. All revisions are subject to
+ * any receiver's applicable license agreements with Fishsemi Inc.
  */
 
 #ifndef __CLIENT_MANAGER_H__
 #define __CLIENT_MANAGER_H__
 
-struct sensor_client;
+#include "utils.h"
+#include "sensor.h"
 
-struct client_callback {
-    void (*event_update)(struct sensor_event *event, size_t num);
-    void (*accuracy_changed)(struct sensor_t *sensor, int accuracy);
+struct snshub_client;
+
+struct cmgr_callback {
+  void (*event_update)(struct sensor_event *event, size_t num);
+  void (*accuracy_changed)(struct snshub_sensor_t *sensor, int accuracy);
 };
 
-uint32_t cmgr_get_version();
-bool cmgr_system_ready();
-struct sensor_client *cmgr_client_request(const char *name, struct client_callback *cb);
-int cmgr_client_release(struct sensor_client *client);
+uint32_t cmgr_get_version(void);
+bool cmgr_system_ready(void);
+struct snshub_client *cmgr_client_request(const char *name, struct cmgr_callback *cb);
+int cmgr_client_release(struct snshub_client *client);
 
-int cmgr_get_num_of_sensors();
+int cmgr_get_num_of_sensors(void);
 int cmgr_get_all_handles(int *handles);
 
-struct sensor_t *cmgr_get_sensor_by_type(int type);
-struct sensor_t *cmgr_get_sensor_by_handle(int handle);
+struct snshub_sensor_t *cmgr_get_sensor_by_type(int type);
+struct snshub_sensor_t *cmgr_get_sensor_by_handle(int handle);
 
-int cmgr_activate_sensor(struct sensor_client *client, struct sensor_t *sensor, bool enable);
-int cmgr_set_delay(struct sensor_client *client, struct sensor_t *sensor, uint32_t delay);
+int cmgr_activate_sensor(struct snshub_client *client, struct snshub_sensor_t *sensor, bool enable, snshub_data_mode mode);
+int cmgr_set_delay(struct snshub_client *client, struct snshub_sensor_t *sensor, uint32_t delay);
+int cmgr_read_data(struct snshub_client *client, struct snshub_sensor_t *sensor, struct sensor_event *event);
 
 /* this combo api is mainly used by the local application running inside the sensorhub.
  * sensor: for which to enable/disable, NULL for all sensors of this client if enable is false
  * delay: the output delay in us, ignored if enable is false */
-int cmgr_activate_sensor_one(struct sensor_client *client, struct sensor_t *sensor, uint32_t delay, bool enable);
+int cmgr_activate_sensor_one(struct snshub_client *client, struct snshub_sensor_t *sensor, uint32_t delay, bool enable, snshub_data_mode mode);
 
 #endif

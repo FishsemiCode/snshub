@@ -1,0 +1,67 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+menu "SNSHUB"
+
+config SNSHUB
+	bool "SNSHUB"
+	default n
+	depends on SIG_EVTHREAD
+	---help---
+		Enable SNSHUB FUNCTION
+
+config SNSHUB_PRIORITY
+	int "snshub task priority"
+	default 150
+	---help---
+		The priority for SNSHUB task.
+
+config SNSHUB_STACKSIZE
+	int "snshub stack size"
+	default 4096
+	---help---
+	The stack size allocated for the snshub task.
+
+if SNSHUB
+
+config SNSHUB_PROGNAME
+	string "SNSHUB program name"
+	default "snshub"
+
+config ENABLE_SNSHUB
+	bool "enable snshub function"
+	default y
+	---help---
+		Enable snshub function
+
+config DEBUG_SNSHUB_ERROR
+	bool "Snshub error output"
+	default n
+	depends on DEBUG_ERROR
+
+config DEBUG_SNSHUB_WARN
+	bool "Snshub warn output"
+	default n
+	depends on DEBUG_WARN
+
+config DEBUG_SNSHUB_INFO
+	bool "Snshub info output"
+	default n
+	depends on DEBUG_INFO
+
+config SNSHUB_BOARD_U1_BOX
+	bool "snshub board for u1 box"
+	default n
+	---help---
+		Select snshub board for u1 box
+
+config SNSHUB_DRIVER_ICM42605
+	bool "snshub driver icm42605"
+	default n
+	---help---
+		Enable snshub driver icm42605
+
+endif # SNSHUB
+
+endmenu

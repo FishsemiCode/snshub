@@ -1,14 +1,14 @@
 /* Copyright Statement:
  *
- * This software/firmware and related documentation ("Pinecone Software") are
+ * This software/firmware and related documentation ("Fishsemi Software") are
  * protected under relevant copyright laws. The information contained herein is
- * confidential and proprietary to Pinecone Inc. and/or its licensors. Without
- * the prior written permission of Pinecone inc. and/or its licensors, any
- * reproduction, modification, use or disclosure of Pinecone Software, and
+ * confidential and proprietary to Fishsemi Inc. and/or its licensors. Without
+ * the prior written permission of Fishsemi inc. and/or its licensors, any
+ * reproduction, modification, use or disclosure of Fishsemi Software, and
  * information contained herein, in whole or in part, shall be strictly
  * prohibited.
  *
- * Pinecone Inc. (C) 2017. All rights reserved.
+ * Fishsemi Inc. (C) 2019. All rights reserved.
  *
  * BY OPENING THIS FILE, RECEIVER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
  * THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("PINECONE SOFTWARE")
@@ -30,10 +30,14 @@
  * PINECONE SOFTWARE AT ISSUE, OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE
  * CHARGE PAID BY RECEIVER TO PINECONE FOR SUCH PINECONE SOFTWARE AT ISSUE.
  *
- * The following software/firmware and/or related documentation ("Pinecone
- * Software") have been modified by Pinecone Inc. All revisions are subject to
- * any receiver's applicable license agreements with Pinecone Inc.
+ * The following software/firmware and/or related documentation ("Fishsemi
+ * Software") have been modified by Fishsemi Inc. All revisions are subject to
+ * any receiver's applicable license agreements with Fishsemi Inc.
  */
+
+/****************************************************************************
+ * Included Files
+ ****************************************************************************/
 
 #include <errno.h>
 #include <stdio.h>
@@ -41,131 +45,140 @@
 #include <stdint.h>
 #include <string.h>
 #include "circ_buffer.h"
+#include "utils.h"
 
-static inline size_t buffer_count(struct circ_buffer *buffer)
+/****************************************************************************
+ * Private
+ ****************************************************************************/
+
+static inline size_t buffer_count(FAR struct cmgr_circ_buffer *buffer)
 {
-    return (buffer->head - buffer->tail) & (buffer->size - 1);
+  return (buffer->head - buffer->tail) & (buffer->size - 1);
 }
 
-static inline size_t buffer_count_to_end(struct circ_buffer *buffer)
+static inline size_t buffer_count_to_end(FAR struct cmgr_circ_buffer *buffer)
 {
-    size_t end = buffer->size - buffer->tail;
-    size_t n = (buffer->head + end) & (buffer->size - 1);
+  size_t end = buffer->size - buffer->tail;
+  size_t n = (buffer->head + end) & (buffer->size - 1);
 
-    return n < end ? n : end;
+  return n < end ? n : end;
 }
 
-static inline size_t buffer_space(struct circ_buffer *buffer)
+static inline size_t buffer_space(FAR struct cmgr_circ_buffer *buffer)
 {
-    return (buffer->tail - buffer->head - 1) & (buffer->size - 1);
+  return (buffer->tail - buffer->head - 1) & (buffer->size - 1);
 }
 
-static inline size_t buffer_space_to_end(struct circ_buffer *buffer)
+static inline size_t buffer_space_to_end(FAR struct cmgr_circ_buffer *buffer)
 {
-    size_t end = buffer->size - 1 - buffer->head;
-    size_t n = (end + buffer->tail) & (buffer->size - 1);
+  size_t end = buffer->size - 1 - buffer->head;
+  size_t n = (end + buffer->tail) & (buffer->size - 1);
 
-    return n <= end ? n : (end + 1);
+  return n <= end ? n : (end + 1);
 }
 
-int circ_buffer_init(struct circ_buffer **buffer, const char *name, size_t element_size, size_t size)
+/****************************************************************************
+ * Public
+ ****************************************************************************/
+
+int cmgr_circ_buffer_init(FAR struct cmgr_circ_buffer **buffer, FAR const char *name, size_t element_size, size_t size)
 {
-    struct circ_buffer *cb;
+  FAR struct cmgr_circ_buffer *cb;
 
-    if (size & (size - 1)) {
-        printf("circ buffer size is invalid of %s\n", name);
-        return -EINVAL;
-    }
+  if (size & (size - 1)) {
+    snshuberr("circ buffer size is invalid of %s\n", name);
+    return -EINVAL;
+  }
 
-    cb = calloc(1, sizeof(*cb) + element_size * size);
-    if (!cb) {
-        printf("failed to malloc memory for circ buffer %s\n", name);
-        return -ENOMEM;
-    }
+  cb = calloc(1, sizeof(*cb) + element_size * size);
+  if (!cb) {
+    snshuberr("failed to malloc memory for circ buffer %s\n", name);
+    return -ENOMEM;
+  }
 
-    cb->name = name;
-    cb->element_size = element_size;
-    cb->size = size;
-    cb->data = cb + 1;
+  cb->name = name;
+  cb->element_size = element_size;
+  cb->size = size;
+  cb->data = cb + 1;
 
-    *buffer = cb;
+  *buffer = cb;
 
-    return 0;
+  return 0;
 }
 
-int circ_buffer_push(struct circ_buffer *buffer, void *data, int num)
+int cmgr_circ_buffer_push(FAR struct cmgr_circ_buffer *buffer, FAR void *data, int num)
 {
-    size_t space, num_to_write;
-    size_t esize;
+  size_t space, num_to_write;
+  size_t esize;
 
-    space = buffer_space(buffer);
-    if (num > space) {
-        printf("circ buffer: no enough space of %s\n", buffer->name);
-        return -ENOMEM;
-    }
+  space = buffer_space(buffer);
+  if (num > space) {
+    snshuberr("circ buffer: no enough space of %s\n", buffer->name);
+    return -ENOMEM;
+  }
 
-    esize = buffer->element_size;
-    space = buffer_space_to_end(buffer);
-    num_to_write = (space >= num ? num : space);
-    memcpy(buffer->data + buffer->head * esize, data, num_to_write * esize);
+  esize = buffer->element_size;
+  space = buffer_space_to_end(buffer);
+  num_to_write = (space >= num ? num : space);
+  memcpy(buffer->data + buffer->head * esize, data, num_to_write * esize);
 
-    num -= num_to_write;
-    if (num > 0)
-        memcpy(buffer->data, data + num_to_write * esize, num * esize);
+  num -= num_to_write;
+  if (num > 0)
+    memcpy(buffer->data, data + num_to_write * esize, num * esize);
 
-    buffer->head = (buffer->head + num + num_to_write) & (buffer->size - 1);
+  buffer->head = (buffer->head + num + num_to_write) & (buffer->size - 1);
 
-    return 0;
+  return 0;
 }
 
 /* return the actual element num got, otherwise a negative error */
-int circ_buffer_pop(struct circ_buffer *buffer, void *data, int num)
+int cmgr_circ_buffer_pop(FAR struct cmgr_circ_buffer *buffer, FAR void *data, int num)
 {
-    size_t cnt, num_to_read;
-    size_t esize;
+  size_t cnt, num_to_read;
+  size_t esize;
 
-    esize = buffer->element_size;
+  esize = buffer->element_size;
 
-    cnt = buffer_count(buffer);
-    num = cnt > num ? num : cnt;
+  cnt = buffer_count(buffer);
+  num = cnt > num ? num : cnt;
 
-    cnt = buffer_count_to_end(buffer);
-    num_to_read = cnt >= num ? num : cnt;
-    memcpy(data, buffer->data + buffer->tail * esize, num_to_read * esize);
+  cnt = buffer_count_to_end(buffer);
+  num_to_read = cnt >= num ? num : cnt;
+  memcpy(data, buffer->data + buffer->tail * esize, num_to_read * esize);
 
-    num -= num_to_read;
-    if (num > 0)
-        memcpy(data + num_to_read * esize, buffer->data, num * esize);
+  num -= num_to_read;
+  if (num > 0)
+    memcpy(data + num_to_read * esize, buffer->data, num * esize);
 
-    buffer->tail = (buffer->tail + num + num_to_read) & (buffer->size - 1);
+  buffer->tail = (buffer->tail + num + num_to_read) & (buffer->size - 1);
 
-    return num + num_to_read;
+  return num + num_to_read;
 }
 
 /* the return value is the count of handled elements, or negetive error N.O. */
-int circ_buffer_for_each(struct circ_buffer *buffer, buffer_handler handler)
+int cmgr_circ_buffer_for_each(FAR struct cmgr_circ_buffer *buffer, buffer_handler handler)
 {
-    size_t cnt, i;
-    void *element;
-    size_t esize;
+  size_t cnt, i;
+  FAR void *element;
+  size_t esize;
 
-    if (!handler)
-        return -EINVAL;
+  if (!handler)
+    return -EINVAL;
 
-    esize = buffer->element_size;
+  esize = buffer->element_size;
 
-    cnt = buffer_count(buffer);
-    for (i = 0; i < cnt; i++) {
-        element = buffer->data + ((buffer->tail + i) & (buffer->size - 1)) * esize;
-        handler(element);
-    }
+  cnt = buffer_count(buffer);
+  for (i = 0; i < cnt; i++) {
+    element = buffer->data + ((buffer->tail + i) & (buffer->size - 1)) * esize;
+    handler(element);
+  }
 
-    buffer->tail = (buffer->tail + cnt) & (buffer->size - 1);
+  buffer->tail = (buffer->tail + cnt) & (buffer->size - 1);
 
-    return cnt;
+  return cnt;
 }
 
-void circ_buffer_deinit(struct circ_buffer *buffer)
+void cmgr_circ_buffer_deinit(FAR struct cmgr_circ_buffer *buffer)
 {
-    free(buffer);
+  free(buffer);
 }

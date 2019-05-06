@@ -1,14 +1,14 @@
 /* Copyright Statement:
  *
- * This software/firmware and related documentation ("Pinecone Software") are
+ * This software/firmware and related documentation ("Fishsemi Software") are
  * protected under relevant copyright laws. The information contained herein is
- * confidential and proprietary to Pinecone Inc. and/or its licensors. Without
- * the prior written permission of Pinecone inc. and/or its licensors, any
- * reproduction, modification, use or disclosure of Pinecone Software, and
+ * confidential and proprietary to Fishsemi Inc. and/or its licensors. Without
+ * the prior written permission of Fishsemi inc. and/or its licensors, any
+ * reproduction, modification, use or disclosure of Fishsemi Software, and
  * information contained herein, in whole or in part, shall be strictly
  * prohibited.
  *
- * Pinecone Inc. (C) 2017. All rights reserved.
+ * Fishsemi Inc. (C) 2019. All rights reserved.
  *
  * BY OPENING THIS FILE, RECEIVER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
  * THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("PINECONE SOFTWARE")
@@ -30,9 +30,9 @@
  * PINECONE SOFTWARE AT ISSUE, OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE
  * CHARGE PAID BY RECEIVER TO PINECONE FOR SUCH PINECONE SOFTWARE AT ISSUE.
  *
- * The following software/firmware and/or related documentation ("Pinecone
- * Software") have been modified by Pinecone Inc. All revisions are subject to
- * any receiver's applicable license agreements with Pinecone Inc.
+ * The following software/firmware and/or related documentation ("Fishsemi
+ * Software") have been modified by Fishsemi Inc. All revisions are subject to
+ * any receiver's applicable license agreements with Fishsemi Inc.
  */
 
 #ifndef __SENSOR_H__
@@ -86,95 +86,102 @@
 #define GRAVITY     (9.80665f)
 #define DEGREE2RAD  (3.14159265358979323f / 180)
 
-struct sensor_t {
-    char *name;
-    char *vendor;
-    char *module;
-    int type;
-    int handle;
-    float max_range;
-    float power;
-    int min_delay;
-    int max_delay;
-    float resolution;
-    uint32_t flags;
-    /*XXX: remove here? these 2 member should be in the client that work for the host interface */
-    int fifo_max_event_count;
-    int fifo_reserved_event_count;
+/* user can active reading sensor data or also can wait the sensor event reported */
+typedef enum {
+  ACTIVE_READING,
+  REPORTED,
+} snshub_data_mode;
+
+struct snshub_sensor_t {
+  FAR char *name;
+  FAR char *vendor;
+  FAR char *module;
+  int type;
+  int handle;
+  float max_range;
+  float power;
+  int min_delay;
+  int max_delay;
+  float resolution;
+  uint32_t flags;
+  /*XXX: remove here? these 2 member should be in the client that work for the host interface */
+  int fifo_max_event_count;
+  int fifo_reserved_event_count;
+  snshub_data_mode mode;
 };
 
 struct sensor_vector {
-    float x;
-    float y;
-    float z;
+  float x;
+  float y;
+  float z;
 };
 
 struct sensor_vector_temp {
-    float x;
-    float y;
-    float z;
-    float temperature;
+  float x;
+  float y;
+  float z;
+  float temperature;
 };
 
 struct sensor_vector_raw {
-    int32_t x_raw;
-    int32_t y_raw;
-    int32_t z_raw;
+  int32_t x_raw;
+  int32_t y_raw;
+  int32_t z_raw;
 };
 
 struct sensor_scalar {
-    float value;
+  float value;
 };
 
 struct sensor_scalar_temp {
-    float value;
-    float temperature;
+  float value;
+  float temperature;
 };
 
 struct sensor_scalar_raw {
-    int32_t raw0;
-    int32_t raw1;
+  int32_t raw0;
+  int32_t raw1;
 };
 
 struct sensor_event {
-    struct sensor_t *sensor;
-    int type;
-    int64_t timestamp;
-    int8_t status;
-    uint8_t reserved[3];
-    union {
-        int32_t data_raw[3];
-        struct sensor_vector_raw accel_raw;
-        struct sensor_vector_raw gyro_raw;
-        struct sensor_vector_raw magnetic_raw;
-        struct sensor_vector_raw orientation_raw;
-        struct sensor_scalar_raw light_raw;
-        struct sensor_scalar_raw distance_raw;
-        struct sensor_scalar_raw pressure_raw;
-        struct sensor_scalar_raw temperature_raw;
-        struct sensor_scalar_raw humidity_raw;
-    };
-    union {
-        float data[4];
-        struct sensor_vector accel;
-        struct sensor_vector_temp accel_t;
-        struct sensor_vector gyro;
-        struct sensor_vector_temp gyro_t;
-        struct sensor_vector magnetic;
-        struct sensor_vector_temp magnetic_t;
-        struct sensor_vector orientation;
-        struct sensor_vector_temp orientation_t;
-        struct sensor_scalar light;
-        struct sensor_scalar_temp light_t;
-        struct sensor_scalar distance;
-        struct sensor_scalar_temp distance_t;
-        struct sensor_scalar pressure;
-        struct sensor_scalar_temp pressure_t;
-        struct sensor_scalar temperature;
-        struct sensor_scalar_temp temperature_t;
-        struct sensor_scalar humidity;
-        struct sensor_scalar_temp humidity_t;
-    };
+  FAR struct snshub_sensor_t *sensor;
+  int type;
+  int64_t timestamp;
+  int8_t status;
+  uint8_t reserved[3];
+  union {
+    int32_t data_raw[3];
+    struct sensor_vector_raw accel_raw;
+    struct sensor_vector_raw gyro_raw;
+    struct sensor_vector_raw magnetic_raw;
+    struct sensor_vector_raw orientation_raw;
+    struct sensor_scalar_raw light_raw;
+    struct sensor_scalar_raw distance_raw;
+    struct sensor_scalar_raw pressure_raw;
+    struct sensor_scalar_raw temperature_raw;
+    struct sensor_scalar_raw humidity_raw;
+  };
+  union {
+    float data[4];
+    struct sensor_vector accel;
+    struct sensor_vector_temp accel_t;
+    struct sensor_vector gyro;
+    struct sensor_vector_temp gyro_t;
+    struct sensor_vector magnetic;
+    struct sensor_vector_temp magnetic_t;
+    struct sensor_vector orientation;
+    struct sensor_vector_temp orientation_t;
+    struct sensor_scalar light;
+    struct sensor_scalar_temp light_t;
+    struct sensor_scalar distance;
+    struct sensor_scalar_temp distance_t;
+    struct sensor_scalar pressure;
+    struct sensor_scalar_temp pressure_t;
+    struct sensor_scalar temperature;
+    struct sensor_scalar_temp temperature_t;
+    struct sensor_scalar humidity;
+    struct sensor_scalar_temp humidity_t;
+  };
 };
 
 #endif

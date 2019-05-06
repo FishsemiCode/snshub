@@ -1,14 +1,14 @@
 /* Copyright Statement:
  *
- * This software/firmware and related documentation ("Pinecone Software") are
+ * This software/firmware and related documentation ("Fishsemi Software") are
  * protected under relevant copyright laws. The information contained herein is
- * confidential and proprietary to Pinecone Inc. and/or its licensors. Without
- * the prior written permission of Pinecone inc. and/or its licensors, any
- * reproduction, modification, use or disclosure of Pinecone Software, and
+ * confidential and proprietary to Fishsemi Inc. and/or its licensors. Without
+ * the prior written permission of Fishsemi inc. and/or its licensors, any
+ * reproduction, modification, use or disclosure of Fishsemi Software, and
  * information contained herein, in whole or in part, shall be strictly
  * prohibited.
  *
- * Pinecone Inc. (C) 2017. All rights reserved.
+ * Fishsemi Inc. (C) 2019. All rights reserved.
  *
  * BY OPENING THIS FILE, RECEIVER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
  * THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("PINECONE SOFTWARE")
@@ -30,9 +30,9 @@
  * PINECONE SOFTWARE AT ISSUE, OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE
  * CHARGE PAID BY RECEIVER TO PINECONE FOR SUCH PINECONE SOFTWARE AT ISSUE.
  *
- * The following software/firmware and/or related documentation ("Pinecone
- * Software") have been modified by Pinecone Inc. All revisions are subject to
- * any receiver's applicable license agreements with Pinecone Inc.
+ * The following software/firmware and/or related documentation ("Fishsemi
+ * Software") have been modified by Fishsemi Inc. All revisions are subject to
+ * any receiver's applicable license agreements with Fishsemi Inc.
  */
 
 #ifndef __ALGO_MANAGER_H__
@@ -40,21 +40,21 @@
 
 #include "sensor.h"
 
-#define ALGO_MAX_SENSORS        10
+#define ALGO_MAX_SENSORS    10
 
 struct sensor_algo {
-    int types[ALGO_MAX_SENSORS];
-    int (*init)(struct sensor_t *sensor, void *param);
-    int (*deinit)(struct sensor_t *sensor);
-    int (*command)(struct sensor_t *sensor, int cmd, void *param);
-    int (*update)(struct sensor_t *sensor, struct sensor_event *in, struct sensor_event *out);
+  int types[ALGO_MAX_SENSORS];
+  int (*init)(FAR struct snshub_sensor_t *sensor, void *param);
+  int (*deinit)(FAR struct snshub_sensor_t *sensor);
+  int (*command)(FAR struct snshub_sensor_t *sensor, int cmd, FAR void *param);
+  int (*update)(FAR struct snshub_sensor_t *sensor, struct sensor_event *in, FAR struct sensor_event *out);
 };
 
 typedef enum {
-    CMD_ENABLE,
+  CMD_ENABLE,
 } algo_cmd_t;
 
-int amgr_register_algo(struct sensor_algo *algo);
-struct sensor_algo *amgr_find_algo(int virtual_type);
+int amgr_register_algo(FAR struct sensor_algo *algo);
+FAR struct sensor_algo *amgr_find_algo(int virtual_type);
 
 #endif
