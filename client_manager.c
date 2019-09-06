@@ -467,7 +467,7 @@ int cmgr_read_data(FAR struct snshub_client *client, FAR struct snshub_sensor_t 
 
   pthread_mutex_lock(&cmgr_ops_mutex);
 
-  if (sensor->mode != ACTIVE_READING)
+  if (sensor->mode != SNSHUB_POLLING)
     goto do_nothing;
 
   /* the sensor has not been activated, so we can not do the hardware operations on this sensor even for ODR changes */

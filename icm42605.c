@@ -1008,7 +1008,7 @@ int icm42605_activate(FAR const struct sensor_dev *dev, bool enable, snshub_data
       rtdata->gyro_enabled = enable;
     }
 
-  if (mode != ACTIVE_READING)
+  if (mode != SNSHUB_POLLING)
     {
       new_status = rtdata->acc_enabled || rtdata->gyro_enabled;
       if (old_status != new_status)

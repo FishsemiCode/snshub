@@ -88,8 +88,8 @@
 
 /* user can active reading sensor data or also can wait the sensor event reported */
 typedef enum {
-  ACTIVE_READING,
-  REPORTED,
+  SNSHUB_POLLING,
+  SNSHUB_INTERRUPT,
 } snshub_data_mode;
 
 struct snshub_sensor_t {
