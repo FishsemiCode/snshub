@@ -4,8 +4,8 @@
 #
 menu "SNSHUB"
 
-config SNSHUB
-	bool "SNSHUB"
+config SERVICE_SNSHUB
+	bool "SERVICE_SNSHUB"
 	default n
 	depends on SIG_EVTHREAD
 	---help---
@@ -23,7 +23,7 @@ config SNSHUB_STACKSIZE
 	---help---
 	The stack size allocated for the snshub task.
 
-if SNSHUB
+if SERVICE_SNSHUB
 
 config SNSHUB_PROGNAME
 	string "SNSHUB program name"

@@ -37,6 +37,6 @@
 #
 #################################################################################
 
-ifeq ($(CONFIG_SNSHUB),y)
+ifeq ($(CONFIG_SERVICE_SNSHUB),y)
 CONFIGURED_APPS += external/services/snshub
 endif
