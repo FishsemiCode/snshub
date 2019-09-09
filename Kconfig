@@ -8,6 +8,9 @@ config SERVICE_SNSHUB
 	bool "SERVICE_SNSHUB"
 	default n
 	depends on SIG_EVTHREAD
+	depends on DEV_GPIO
+	depends on I2C_DRIVER
+	depends on SPI_DRIVER
 	---help---
 		Enable SNSHUB FUNCTION
 
