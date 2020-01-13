@@ -55,6 +55,10 @@ CSRCS += \
 	sensor_port_spi.c \
 	utils.c
 
+ifeq ($(CONFIG_SNSHUB_BOARD_DUMMY),y)
+CSRCS += sensor_board_dummy.c
+endif
+
 ifeq ($(CONFIG_SNSHUB_BOARD_U1_BOX),y)
 CSRCS += sensor_board_u1_box.c
 endif

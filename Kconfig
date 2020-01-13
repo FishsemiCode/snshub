@@ -53,17 +53,31 @@ config DEBUG_SNSHUB_INFO
 	default n
 	depends on DEBUG_INFO
 
+menu "SNSHUB_BOARD"
+
+config SNSHUB_BOARD_DUMMY
+	bool "snshub board for dummy"
+	default n
+	---help---
+		Select snshub board for dummy, template code
+
 config SNSHUB_BOARD_U1_BOX
 	bool "snshub board for u1 box"
 	default n
 	---help---
 		Select snshub board for u1 box
 
+endmenu
+
+menu "SENSOR_DRIVER"
+
 config SNSHUB_DRIVER_ICM42605
 	bool "snshub driver icm42605"
 	default n
 	---help---
 		Enable snshub driver icm42605
+
+endmenu
 
 endif # SNSHUB
 
