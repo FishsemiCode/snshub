@@ -38,5 +38,5 @@
 #################################################################################
 
 ifeq ($(CONFIG_SERVICE_SNSHUB),y)
-CONFIGURED_APPS += external/services/snshub
+CONFIGURED_APPS += $(APPDIR)/external/services/snshub
 endif
