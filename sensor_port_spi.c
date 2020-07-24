@@ -140,7 +140,7 @@ int port_init_spi(FAR const struct sensor_bus_info *info, FAR struct sns_port *p
     return -ENODEV;
   }
 
-  port->master = g_spi[spi_info->master_id];;
+  port->master = g_spi[spi_info->master_id];
   port->ops = &spi_ops;
   port->binfo = info;
 

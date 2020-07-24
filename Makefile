@@ -67,6 +67,10 @@ ifeq ($(CONFIG_SNSHUB_DRIVER_ICM42605),y)
 CSRCS += icm42605.c
 endif
 
+ifeq ($(CONFIG_SNSHUB_DRIVER_LIS3DH),y)
+CSRCS += lis3dh.c
+endif
+
 CFLAGS += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" $(SRCDIR)/}
 
 MAINSRC = client_manager.c

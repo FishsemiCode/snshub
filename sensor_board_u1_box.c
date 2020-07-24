@@ -38,10 +38,11 @@
 #include "sensor_driver.h"
 #include "hw_sensors.h"
 #include "icm42605.h"
+#include "lis3dh.h"
 #include "utils.h"
 
+#ifdef CONFIG_SNSHUB_DRIVER_ICM42605
 extern struct sensor_driver icm42605_drv;
-
 static const struct icm42605_platform_data icm42605_spdata = {
   .irq_pin = 10,
   .trigger_type = IOEXPANDER_VAL_RISING,
@@ -60,13 +61,48 @@ static const struct sensor_platform_data icm42605_pdata = {
   },
   .spdata = &icm42605_spdata,
 };
+#endif
+
+#ifdef CONFIG_SNSHUB_DRIVER_LIS3DH
+extern struct sensor_driver lis3dh_drv;
+static const struct lis3dh_platform_data lis3dh_spdata = {
+  .irq_pin = 0,
+  .trigger_type = IOEXPANDER_VAL_RISING,
+  .place = 1,
+};
+static const struct sensor_platform_data lis3dh_pdata = {
+  .name = "st,lis3dh",
+  .bus_info = {
+    .bus_type = BUS_SPI,
+    .u = {
+      .spi_info = {
+        .master_id = 0,
+        .mode = SPI_CPOL1_CPHA1,
+        .max_frequency = 1000000,
+        .type = SPIDEVTYPE_EXPANDER,
+      },
+    },
+  },
+  .spdata = &lis3dh_spdata,
+};
+#endif
 
 const struct sensor_platform_data *g_sensor_pdata[] = {
+#ifdef CONFIG_SNSHUB_DRIVER_ICM42605
   &icm42605_pdata,
+#endif
+#ifdef CONFIG_SNSHUB_DRIVER_LIS3DH
+  &lis3dh_pdata,
+#endif
   NULL,
 };
 
 const struct sensor_driver *g_sensor_drv[] = {
+#ifdef CONFIG_SNSHUB_DRIVER_ICM42605
   &icm42605_drv,
+#endif
+#ifdef CONFIG_SNSHUB_DRIVER_LIS3DH
+  &lis3dh_drv,
+#endif
   NULL,
 };

@@ -77,6 +77,12 @@ config SNSHUB_DRIVER_ICM42605
 	---help---
 		Enable snshub driver icm42605
 
+config SNSHUB_DRIVER_LIS3DH
+	bool "snshub driver lis3dh"
+	default n
+	---help---
+		Enable snshub driver lis3dh
+
 endmenu
 
 endif # SNSHUB
