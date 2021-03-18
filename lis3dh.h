@@ -155,7 +155,11 @@
 #define LIS3DH_ODR_LP_1600HZ              ( 0x8 )
 #define LIS3DH_ODR_1344HZ                 ( 0x9 )
 #define LIS3DH_ODR_LP_5376HZ              ( 0x9 )
+
+#ifndef GRAVITY
 #define GRAVITY                           ( 9.80665f )
+#endif
+
 #define ACCEL_SENSOR                      "accelerometer"
 #define ADDRESS_AUTO_INCREASE_READ        ( 0xC0 )
 

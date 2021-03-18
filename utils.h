@@ -73,7 +73,11 @@
 #define timespec_to_nsec(ts) \
     ((uint64_t)(ts)->tv_sec * NSEC_PER_SEC + (ts)->tv_nsec)
 #define __countof(arr) (sizeof(arr) / sizeof((arr)[0]))
+
+#ifndef MIN
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
+#endif
+
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
 
 typedef enum {

@@ -83,7 +83,10 @@
 #define SENSOR_TYPE_FREEFALL                        39
 #define SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED      40
 
+#ifndef GRAVITY
 #define GRAVITY     (9.80665f)
+#endif
+
 #define DEGREE2RAD  (3.14159265358979323f / 180)
 
 /* user can active reading sensor data or also can wait the sensor event reported */
